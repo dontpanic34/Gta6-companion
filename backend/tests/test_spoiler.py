@@ -154,4 +154,4 @@ def test_search_never_leaks_hidden_text(conn):
 
 
 def test_migrations_idempotent(conn):
-    assert db.migrate(conn) == db.migrate(conn) == 1
+    assert db.migrate(conn) == db.migrate(conn) == 2
