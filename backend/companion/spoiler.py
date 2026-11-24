@@ -42,6 +42,14 @@ def unlock_solution(conn: sqlite3.Connection, entity_id: str, *, confirmed: bool
         conn.execute("INSERT OR IGNORE INTO solution_unlock(entity_id) VALUES (?)", (entity_id,))
 
 
+def reveal_name(conn: sqlite3.Connection, entity_id: str, *, confirmed: bool) -> None:
+    """Révèle le vrai titre d'UN contenu (les portes de progression restent actives)."""
+    if not confirmed:
+        raise PermissionError("Confirmation explicite requise pour révéler le titre.")
+    with conn:
+        conn.execute("INSERT OR IGNORE INTO name_reveal(entity_id) VALUES (?)", (entity_id,))
+
+
 def get_entity(conn: sqlite3.Connection, entity_id: str) -> dict | None:
     row = conn.execute("SELECT * FROM visible_entity WHERE id = ?", (entity_id,)).fetchone()
     if row is None:
@@ -50,6 +58,10 @@ def get_entity(conn: sqlite3.Connection, entity_id: str) -> dict | None:
         "id": row["id"],
         "kind": row["kind"],
         "name": row["display_name"],
+        "name_hidden": not row["name_visible"],
+        "category": row["category"],
+        "region": row["region_label"],
+        "reliability": row["reliability"],
         "missable_warning": bool(row["missable"]),
         "claims": [dict(r) for r in conn.execute(
             "SELECT field, value_json, value_kind, source_id, source_url, status, observed_at "
@@ -93,6 +105,8 @@ def reindex(conn: sqlite3.Connection) -> None:
         conn.execute("DELETE FROM search_fts")
         conn.execute("INSERT INTO search_fts(body, entity_id, field, ref_id) "
                      "SELECT canonical_name, id, 'name', NULL FROM entity")
+        conn.execute("INSERT INTO search_fts(body, entity_id, field, ref_id) "
+                     "SELECT neutral_alias, id, 'alias', NULL FROM entity WHERE neutral_alias IS NOT NULL")
         conn.execute("INSERT INTO search_fts(body, entity_id, field, ref_id) "
                      "SELECT body, entity_id, 'content', id FROM activity_content")
         conn.execute("INSERT INTO search_fts(body, entity_id, field, ref_id) "

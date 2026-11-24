@@ -126,6 +126,56 @@ def solution(entity_id: str, confirm: bool = False):
     return get_entity(entity_id)
 
 
+@app.post("/api/entity/{entity_id:path}/reveal-name", dependencies=[Depends(auth)])
+def reveal_name(entity_id: str, confirm: bool = False):
+    try:
+        spoiler.reveal_name(conn(), entity_id, confirmed=confirm)
+    except PermissionError as e:
+        raise HTTPException(400, str(e))
+    return get_entity(entity_id)
+
+
+PLACE_KINDS = ("location", "secret_quest", "random_encounter", "dynamic_event", "easter_egg",
+               "mystery", "activity", "collectible", "property")
+
+
+@app.get("/api/places", dependencies=[Depends(auth)])
+def places(region: str | None = None, category: str | None = None, kind: str | None = None,
+           hide_done: bool = False, secrets_only: bool = False, limit: int = 3000):
+    c = conn()
+    sql = f"""SELECT v.id, v.kind, v.display_name AS name, v.category, v.region_label AS region,
+                     v.reliability, p.x, p.y, p.precision, u.status
+              FROM visible_entity v
+              LEFT JOIN visible_location p ON p.entity_id = v.id
+              LEFT JOIN user_item_status u ON u.entity_id = v.id
+              WHERE v.kind IN ({",".join("?" * len(PLACE_KINDS))})"""
+    args: list = list(PLACE_KINDS)
+    if region:
+        sql += " AND v.region_label = ?"; args.append(region)
+    if category:
+        sql += " AND v.category = ?"; args.append(category)
+    if kind:
+        sql += " AND v.kind = ?"; args.append(kind)
+    if secrets_only:
+        sql += " AND v.id LIKE 'secret:%'"
+    if hide_done:
+        sql += " AND COALESCE(u.status,'') NOT IN ('discovered','done')"
+    sql += " ORDER BY v.category, v.display_name LIMIT ?"; args.append(limit)
+    return [dict(r) for r in c.execute(sql, args)]
+
+
+@app.get("/api/places/facets", dependencies=[Depends(auth)])
+def place_facets():
+    c = conn()
+    q = f"FROM visible_entity WHERE kind IN ({','.join('?' * len(PLACE_KINDS))})"
+    return {
+        "regions": [dict(r) for r in c.execute(
+            f"SELECT region_label AS name, COUNT(*) AS n {q} AND region_label IS NOT NULL GROUP BY 1 ORDER BY 2 DESC", PLACE_KINDS)],
+        "categories": [dict(r) for r in c.execute(
+            f"SELECT category AS name, COUNT(*) AS n, MAX(id LIKE 'secret:%') AS secret {q} AND category IS NOT NULL GROUP BY 1 ORDER BY 2 DESC", PLACE_KINDS)],
+    }
+
+
 @app.get("/api/search", dependencies=[Depends(auth)])
 def search(q: str):
     return spoiler.search(conn(), q)

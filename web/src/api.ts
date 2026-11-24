@@ -20,6 +20,18 @@ export interface VehicleDetail {
   hidden_fields: number;
 }
 
+export interface Place {
+  id: string; kind: string; name: string; category: string | null; region: string | null;
+  reliability: string; x: number | null; y: number | null; precision: string | null; status: string | null;
+}
+
+export interface EntityFull {
+  id: string; kind: string; name: string; name_hidden: boolean; category: string | null; region: string | null;
+  reliability: string; missable_warning: boolean; hints_remaining: number; media: string[];
+  claims: { field: string; value_json: string; value_kind: string; source_id: string; source_url: string | null; status: string }[];
+  content: { level: number; ord: number; body: string }[];
+}
+
 export interface Progress {
   chapter: number; completed_missions: string[]; met_characters: string[]; discovered_regions: string[];
 }
@@ -45,6 +57,12 @@ export const api = {
   setProgress: (p: Progress) => req<Progress>("/api/progress", { method: "PUT", body: JSON.stringify(p) }),
   pref: <T,>(k: string) => req<T>(`/api/prefs/${k}`),
   setPref: (k: string, v: unknown) => req(`/api/prefs/${k}`, { method: "PUT", body: JSON.stringify(v) }),
+  places: (params: URLSearchParams) => req<Place[]>(`/api/places?${params}`),
+  facets: () => req<{ regions: { name: string; n: number }[]; categories: { name: string; n: number; secret: number }[] }>("/api/places/facets"),
+  entity: (id: string) => req<EntityFull>(`/api/entity/${encodeURIComponent(id)}`),
+  hint: (id: string) => req<EntityFull>(`/api/entity/${encodeURIComponent(id)}/hint`, { method: "POST" }),
+  revealName: (id: string) => req<EntityFull>(`/api/entity/${encodeURIComponent(id)}/reveal-name?confirm=true`, { method: "POST" }),
+  solution: (id: string) => req<EntityFull>(`/api/entity/${encodeURIComponent(id)}/solution?confirm=true`, { method: "POST" }),
   garage: () => req<{ id: string; name: string; status: string }[]>("/api/garage"),
   setStatus: (id: string, status: string) => req(`/api/status/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify({ status }) }),
 };
@@ -66,3 +84,9 @@ export const FIELD_LABELS: Record<string, string> = {
 
 export const KIND_LABELS = { official: "Officiel (jeu)", community: "Mesure communautaire", subjective: "Appréciation" };
 export const DRIVETRAIN_FR: Record<string, string> = { RWD: "Propulsion", FWD: "Traction", AWD: "Intégrale" };
+
+export const RELIABILITY_FR: Record<string, string> = {
+  confirmed: "Confirmé", probable: "Probable", to_verify: "À vérifier", theory: "Théorie",
+  contradicted: "Contredit", obsolete: "Obsolète",
+};
+export const entityLink = (id: string) => id.startsWith("vehicle:") ? `/vehicules/${encodeURIComponent(id)}` : `/fiche/${encodeURIComponent(id)}`;

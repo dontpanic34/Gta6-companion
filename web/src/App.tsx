@@ -7,6 +7,7 @@ import Encyclopedia from "./pages/Encyclopedia";
 import MapPage from "./pages/MapPage";
 import Assistant from "./pages/Assistant";
 import Settings from "./pages/Settings";
+import EntityPage from "./pages/EntityPage";
 
 const I = {
   home: <path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" />,
@@ -31,6 +32,7 @@ export default function App() {
         <Route path="/encyclopedie" element={<Encyclopedia />} />
         <Route path="/assistant" element={<Assistant />} />
         <Route path="/reglages" element={<Settings />} />
+        <Route path="/fiche/:id" element={<EntityPage />} />
       </Routes>
       <nav className="nav">
         <NavLink to="/" end><Icon d={I.home} />Accueil</NavLink>

@@ -68,6 +68,7 @@ def conn():
               "(2,'vehicle:karin-futo:std','https://img/CANARI.jpg','evaluated')")
     c.execute("INSERT INTO spoiler_gate(entity_id,field,kind,chapter) VALUES "
               "('vehicle:karin-futo:std','media:2','chapter',4)")
+    c.execute("UPDATE entity SET name_status='safe' WHERE spoiler_status='evaluated'")
     c.commit()
     spoiler.reindex(c)
     return c
@@ -154,4 +155,20 @@ def test_search_never_leaks_hidden_text(conn):
 
 
 def test_migrations_idempotent(conn):
-    assert db.migrate(conn) == db.migrate(conn) == 2
+    assert db.migrate(conn) == db.migrate(conn) == 3
+
+
+def test_unsafe_name_shows_alias_until_explicit_reveal(conn):
+    conn.execute("INSERT INTO entity(id,kind,canonical_name,neutral_alias,spoiler_status,name_status) VALUES "
+                 "('secret:s1','secret_quest','Quête CANARI qui finit par un fusil','Secret — Mariana County','evaluated','unknown')")
+    conn.commit(); spoiler.reindex(conn)
+    e = spoiler.get_entity(conn, "secret:s1")
+    assert e["name"] == "Secret — Mariana County" and e["name_hidden"]
+    assert CANARY not in everything_public(conn)
+    assert [r["entity_id"] for r in spoiler.search(conn, "Mariana")] == ["secret:s1"]
+    with pytest.raises(PermissionError):
+        spoiler.reveal_name(conn, "secret:s1", confirmed=False)
+    spoiler.reveal_name(conn, "secret:s1", confirmed=True)
+    assert spoiler.get_entity(conn, "secret:s1")["name"].startswith("Quête CANARI")
+    # la révélation ne vaut que pour ce contenu
+    assert spoiler.get_entity(conn, "quest:q1")["name"] == "Quête secrète — Port Gellhorn"

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../api";
+import { api, entityLink } from "../api";
 
 export default function Encyclopedia() {
   const [q, setQ] = useState("");
@@ -11,7 +11,9 @@ export default function Encyclopedia() {
     return () => clearTimeout(t);
   }, [q]);
 
-  const link = (id: string) => id.startsWith("vehicle:") ? `/vehicules/${encodeURIComponent(id)}` : `#`;
+  const link = entityLink;
+  const [facets, setFacets] = useState<Awaited<ReturnType<typeof api.facets>> | null>(null);
+  useEffect(() => { api.facets().then(setFacets).catch(() => {}); }, []);
   return (
     <div className="page">
       <h1>Encyclopédie</h1>
@@ -30,7 +32,9 @@ export default function Encyclopedia() {
         <Link to="/vehicules" className="card">🚗 Véhicules et variantes</Link>
         <div className="card muted">🔫 Armes et variantes — collecte en cours</div>
         <div className="card muted">📜 Missions et quêtes — phase 5</div>
-        <div className="card muted">🔍 Secrets et mystères — phase 5</div>
+        {facets?.categories.filter((c) => c.secret).map((c) => (
+          <Link key={c.name} className="card" to={`/carte?category=${encodeURIComponent(c.name)}`}>✦ {c.name} <span className="muted small">({c.n})</span></Link>
+        ))}
       </div>
     </div>
   );

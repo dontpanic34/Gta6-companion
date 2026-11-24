@@ -39,11 +39,30 @@ def field_spoiler_status(field: str, value: object) -> str:
     return "unknown"
 
 
+CATALOG_KINDS = {"vehicle_model", "vehicle_variant", "weapon_model", "weapon_variant", "mod_option"}
+
+
 def entity_spoiler_status(kind: str, name: str) -> str:
-    """Les noms de véhicules/armes sont publics (vitrine du jeu) ; le reste en quarantaine."""
-    if kind in {"vehicle_model", "vehicle_variant", "weapon_model", "weapon_variant", "mod_option"}:
-        # « Raul's Tempesta », « Dante's Vitello » : le nom révèle un personnage.
-        if re.search(r"['’]s\b", name):
-            return "unknown"
-        return "evaluated"
+    """Les fiches catalogue (véhicules/armes) sont visibles ; le reste en quarantaine."""
+    return "evaluated" if kind in CATALOG_KINDS else "unknown"
+
+
+def name_status(kind: str, name: str) -> str:
+    """« Raul's Tempesta », « Dante's Vitello » : le nom révèle un personnage -> alias neutre."""
+    if kind in CATALOG_KINDS and not re.search(r"['’]s\b", name):
+        return "safe"
     return "unknown"
+
+
+# Indices narratifs en français (textes de secrets/quêtes).
+FR_NARRATIVE = re.compile(
+    r"\b(mission|chapitre|histoire|scénario|après avoir|termin|finit|se termine|récompense|"
+    r"dénouement|fin de|mort|meurt|tué|trahi|trahison|révél|boss|chaîne de quêtes|débloqu|"
+    r"post-?générique|épilogue)", re.I)
+
+
+def secret_text_status(text: str | None) -> str:
+    """Texte FR d'un secret : 'evaluated' seulement sans aucun indice narratif."""
+    if not text:
+        return "unknown"
+    return "unknown" if FR_NARRATIVE.search(text) else "evaluated"

@@ -13,7 +13,7 @@ import time
 from pathlib import Path
 
 from . import db, importer, spoiler
-from .connectors import gtabase
+from .connectors import gta6map, gtabase
 from .http import PoliteClient
 
 log = logging.getLogger("sync")
@@ -52,10 +52,52 @@ def sync_gtabase(conn, client: PoliteClient, kinds: set[str], limit: int | None)
             "changed": rep.changed, "quarantined": rep.quarantined}
 
 
+def sync_gta6map(conn, client: PoliteClient, limit: int | None) -> dict:
+    errors: list = []
+    # 1) Lieux issus de la carte du jeu
+    locs = []
+    cats = gta6map.category_urls(client.get(gta6map.LOCATIONS_INDEX, max_age=20 * 3600).text)
+    for u in cats[:limit] if limit else cats:
+        try:
+            locs += gta6map.parse_category(u, client.get(u, max_age=20 * 3600).text)
+        except Exception as e:
+            errors.append((u, str(e)))
+    # 2) Secrets (index + pages de regroupement)
+    items, hubs = gta6map.secret_links(client.get(gta6map.SECRETS_INDEX, max_age=6 * 3600).text)
+    seen_hubs: set[str] = set()
+    while hubs:
+        h = hubs.pop()
+        if h in seen_hubs:
+            continue
+        seen_hubs.add(h)
+        try:
+            more, more_hubs = gta6map.secret_links(client.get(h, max_age=6 * 3600).text)
+            items += more
+            hubs += more_hubs
+        except Exception as e:
+            errors.append((h, str(e)))
+    items = sorted(set(items))
+    if limit:
+        items = items[:limit]
+    secrets = []
+    for u in items:
+        try:
+            secrets.append(gta6map.parse_secret(u, client.get(u, max_age=20 * 3600).text))
+        except Exception as e:
+            errors.append((u, str(e)))
+    r1 = importer.import_map_locations(conn, locs)
+    r2 = importer.import_secrets(conn, secrets)
+    spoiler.reindex(conn)
+    return {"source": "gta6map", "locations": len(locs), "secrets": len(secrets), "errors": errors,
+            "created": len(r1.created) + len(r2.created), "changed": r1.changed + r2.changed,
+            "quarantined": r1.quarantined + r2.quarantined}
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--db", default="data/companion.db")
     ap.add_argument("--cache", default="data/http-cache")
+    ap.add_argument("--source", action="append", choices=["gtabase", "gta6map"])
     ap.add_argument("--kind", action="append", choices=["vehicle", "weapon"])
     ap.add_argument("--limit", type=int)
     ap.add_argument("--interval", type=float, default=3.0)
@@ -65,12 +107,18 @@ def main() -> None:
     Path(a.db).parent.mkdir(parents=True, exist_ok=True)
     conn = db.connect(a.db)
     client = PoliteClient(a.cache, min_interval=a.interval)
-    report = sync_gtabase(conn, client, set(a.kind or ["vehicle", "weapon"]), a.limit)
     Path(a.report_dir).mkdir(parents=True, exist_ok=True)
-    out = Path(a.report_dir) / f"sync-{time.strftime('%Y%m%d-%H%M%S')}.json"
-    out.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
-    log.info("Rapport : %s (créés %d, modifiés %d, quarantaine %d, erreurs %d)", out,
-             report["created"], len(report["changed"]), len(report["quarantined"]), len(report["errors"]))
+    for src in a.source or ["gtabase", "gta6map"]:
+        try:  # une source en échec n'empêche pas les autres
+            report = (sync_gtabase(conn, client, set(a.kind or ["vehicle", "weapon"]), a.limit)
+                      if src == "gtabase" else sync_gta6map(conn, client, a.limit))
+        except Exception as e:
+            log.exception("Source %s en échec", src)
+            report = {"source": src, "fatal": str(e), "created": 0, "changed": [], "quarantined": [], "errors": []}
+        out = Path(a.report_dir) / f"sync-{src}-{time.strftime('%Y%m%d-%H%M%S')}.json"
+        out.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+        log.info("%s : rapport %s (créés %d, modifiés %d, quarantaine %d, erreurs %d)", src, out,
+                 report["created"], len(report["changed"]), len(report["quarantined"]), len(report["errors"]))
 
 
 if __name__ == "__main__":
