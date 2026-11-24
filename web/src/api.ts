@@ -47,6 +47,10 @@ export interface Progress {
 }
 
 const TOKEN_KEY = "companion_token";
+const BASE_KEY = "companion_base_url";
+/** Adresse du PC (ex. http://100.64.0.5:8765). Vide = même origine (navigateur sur le PC). */
+export const getBaseUrl = () => { try { return localStorage.getItem(BASE_KEY) ?? ""; } catch { return ""; } };
+export const setBaseUrl = (u: string) => { try { localStorage.setItem(BASE_KEY, u.replace(/\/+$/, "")); } catch { /* ignore */ } };
 export const getToken = () => { try { return localStorage.getItem(TOKEN_KEY) ?? ""; } catch { return ""; } };
 export const setToken = (t: string) => { try { localStorage.setItem(TOKEN_KEY, t); } catch { /* ignore */ } };
 
@@ -54,7 +58,7 @@ async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   const t = getToken();
   if (t) headers.Authorization = `Bearer ${t}`;
-  const r = await fetch(path, { ...init, headers: { ...headers, ...(init.headers as object) } });
+  const r = await fetch(getBaseUrl() + path, { ...init, headers: { ...headers, ...(init.headers as object) } });
   if (!r.ok) throw new Error(r.status === 401 ? "Jeton requis (Réglages)" : r.status === 404 ? "Introuvable ou masqué (anti-spoiler)" : `Erreur ${r.status}`);
   return r.json();
 }

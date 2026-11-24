@@ -4,6 +4,8 @@ import { HashRouter } from "react-router-dom";
 import App from "./App";
 import "./styles.css";
 
+try { document.documentElement.dataset.theme = localStorage.getItem("theme") ?? "dark"; } catch { /* stockage indisponible */ }
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <HashRouter>
