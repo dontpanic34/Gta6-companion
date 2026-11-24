@@ -122,3 +122,20 @@ def test_api_places_and_reveal(tmp_path, monkeypatch):
     assert cl.post("/api/entity/secret:x/reveal-name").status_code == 400
     assert "CANARI" in cl.post("/api/entity/secret:x/reveal-name", params={"confirm": True}).json()["name"]
     api._local.conn = None
+
+
+def test_weapons_variants_and_free_filter():
+    c = db.connect()
+    sms = ParsedItem("sms-01", "u", "weapon", "Shrewsbury SMS-01",
+                     {"class": "Sniper Rifles", "damage": 6.8, "accuracy": 8.6, "price": 2150, "purchase_from": "Ammu-Nation"})
+    gun_nut = ParsedItem("gun-nut-sms-01", "u2", "weapon", "Gun Nut SMS-01",
+                         {"class": "Sniper Rifles", "damage": 7.2, "how_to_unlock": "Ultimate Edition"},
+                         base_model_slug="sms-01")
+    importer.import_items(c, [sms, gun_nut])
+    names = [w["name"] for w in catalog.weapons(c)]
+    assert names == ["Gun Nut SMS-01", "Shrewsbury SMS-01"]
+    assert [w["name"] for w in catalog.weapons(c, free_only=True)] == ["Gun Nut SMS-01"]
+    d = catalog.item_detail(c, "weapon:sms-01:gun-nut-sms-01")
+    assert d["variant_type"] == "named" and [s["name"] for s in d["siblings"]] == ["Shrewsbury SMS-01"]
+    ranked = catalog.weapons(c, weights={"damage": 1})
+    assert ranked[0]["name"] == "Gun Nut SMS-01"

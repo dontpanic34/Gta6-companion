@@ -5,12 +5,12 @@ import { api, DRIVETRAIN_FR, STAT_LABELS, Stats, VehicleSummary } from "../api";
 const STAT_KEYS = Object.keys(STAT_LABELS) as (keyof Stats)[];
 const DRIVES = ["RWD", "FWD", "AWD"];
 
-export function StatBars({ stats }: { stats: Stats }) {
+export function StatBars({ stats, labels = STAT_LABELS }: { stats: Record<string, number | null>; labels?: Record<string, string> }) {
   return (
     <div style={{ display: "grid", gap: 4 }}>
-      {STAT_KEYS.map((k) => (
+      {Object.keys(labels).map((k) => (
         <div className="stat" key={k}>
-          <span className="muted">{STAT_LABELS[k]}</span>
+          <span className="muted">{labels[k]}</span>
           <div className="bar"><i style={{ width: `${((stats[k] ?? 0) / 10) * 100}%` }} /></div>
           <span>{stats[k] ?? "—"}</span>
         </div>

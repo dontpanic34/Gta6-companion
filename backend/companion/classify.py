@@ -14,6 +14,7 @@ SAFE_FIELDS = {
     "handling_offroad", "strength", "style", "era", "security", "access", "tracker",
     "can_register", "standout_set", "specialist", "body_condition", "game_edition",
     "damage", "fire_rate", "range", "accuracy", "recoil", "capacity", "base_model",
+    "weapon_handling", "purchase_from", "moddable", "ammo_upgrade",
 }
 
 # Champs textuels : auto-évalués seulement si le texte est « sûr ».

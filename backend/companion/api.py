@@ -95,9 +95,22 @@ def list_vehicles(
                             weights=weights, query=q)
 
 
+@app.get("/api/weapons", dependencies=[Depends(auth)])
+def list_weapons(q: str | None = None, wclass: list[str] = Query(default=[]),
+                 min_damage: float | None = None, min_accuracy: float | None = None,
+                 min_range: float | None = None, min_handling: float | None = None,
+                 max_price: float | None = None, free_only: bool = False, ranked: bool = False):
+    mins = {k: v for k, v in {"damage": min_damage, "accuracy": min_accuracy, "range": min_range,
+                              "weapon_handling": min_handling}.items() if v is not None}
+    w = catalog.get_pref(conn(), "weapon_weights", {"damage": 0.4, "accuracy": 0.25, "range": 0.2,
+                                                     "weapon_handling": 0.15}) if ranked else None
+    return catalog.weapons(conn(), classes=wclass or None, min_stats=mins, max_price=max_price,
+                           free_only=free_only, weights=w, query=q)
+
+
 @app.get("/api/vehicles/{entity_id:path}", dependencies=[Depends(auth)])
 def get_vehicle(entity_id: str):
-    d = catalog.vehicle_detail(conn(), entity_id)
+    d = catalog.item_detail(conn(), entity_id)
     if not d:
         raise HTTPException(404, "Introuvable ou masqué par la protection anti-spoiler")
     return d

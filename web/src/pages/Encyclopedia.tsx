@@ -30,7 +30,7 @@ export default function Encyclopedia() {
       <h2>Rubriques</h2>
       <div className="grid">
         <Link to="/vehicules" className="card">🚗 Véhicules et variantes</Link>
-        <div className="card muted">🔫 Armes et variantes — collecte en cours</div>
+        <Link to="/armes" className="card">🔫 Armes et variantes</Link>
         <div className="card muted">📜 Missions et quêtes — phase 5</div>
         {facets?.categories.filter((c) => c.secret).map((c) => (
           <Link key={c.name} className="card" to={`/carte?category=${encodeURIComponent(c.name)}`}>✦ {c.name} <span className="muted small">({c.n})</span></Link>

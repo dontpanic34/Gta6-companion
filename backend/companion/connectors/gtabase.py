@@ -29,14 +29,18 @@ FIELD_MAP = {
     "gta6-standout-set": "standout_set", "gta6-specialist": "specialist",
     "gta6-body-condition": "body_condition", "game-edition": "game_edition",
     "how-to-unlock": "how_to_unlock",
-    # armes (à confirmer sur fiches réelles)
-    "damage": "damage", "fire-rate": "fire_rate", "range": "range", "accuracy": "accuracy",
-    "recoil": "recoil", "clip-size": "capacity", "weapon-class": "class",
+    # armes (clés vérifiées sur 103 fiches réelles)
+    "weapon-class": "class", "damage": "damage", "accuracy": "accuracy", "handling": "weapon_handling",
+    "range": "range", "max-ammo": "capacity", "purchase": "purchase_from",
+    "modifications": "moddable", "ammo-upgrade": "ammo_upgrade",
+    "fire-rate": "fire_rate", "recoil": "recoil",
 }
 NUMERIC = {"seats", "gears", "weight_kg", "model_year", "price", "sell_price_stolen",
            "speed", "acceleration", "handling_road", "handling_offroad", "strength",
-           "damage", "fire_rate", "range", "accuracy", "recoil", "capacity"}
-STAT_SCALE_10 = {"speed", "acceleration", "handling_road", "handling_offroad", "strength"}
+           "damage", "fire_rate", "range", "accuracy", "recoil", "capacity", "weapon_handling",
+           "ammo_upgrade"}
+STAT_SCALE_10 = {"speed", "acceleration", "handling_road", "handling_offroad", "strength",
+                 "damage", "accuracy", "weapon_handling", "range"}
 
 
 @dataclass

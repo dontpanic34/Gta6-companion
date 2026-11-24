@@ -135,3 +135,81 @@ def vehicle_detail(conn, entity_id: str) -> dict | None:
         "SELECT COUNT(DISTINCT field) FROM claim WHERE entity_id=? AND id NOT IN (SELECT id FROM visible_claim)",
         (entity_id,)).fetchone()[0]
     return base
+
+
+WEAPON_STATS = ["damage", "accuracy", "weapon_handling", "range"]
+
+
+def weapons(conn: sqlite3.Connection, *, classes: list[str] | None = None,
+            min_stats: dict[str, float] | None = None, max_price: float | None = None,
+            free_only: bool = False, weights: dict[str, float] | None = None,
+            query: str | None = None) -> list[dict]:
+    rows = conn.execute("""
+        SELECT v.id, v.display_name, wv.model_id, wv.variant_type, wm.class
+        FROM visible_entity v JOIN weapon_variant wv ON wv.entity_id = v.id
+        JOIN weapon_model wm ON wm.entity_id = wv.model_id""").fetchall()
+    ids = [r["id"] for r in rows]
+    vals = _best_values(conn, ids)
+    media = {}
+    if ids:
+        for m in conn.execute(f"SELECT entity_id, url FROM visible_media WHERE entity_id IN ({','.join('?'*len(ids))})", ids):
+            media.setdefault(m["entity_id"], m["url"])
+    out = []
+    for r in rows:
+        f = vals[r["id"]]
+        val = lambda k: f.get(k, {}).get("value")  # noqa: E731
+        cls = val("class") or r["class"]
+        if classes and cls not in classes:
+            continue
+        if min_stats and any((val(k) is None or val(k) < v) for k, v in min_stats.items()):
+            continue
+        # « gratuit » = pas de prix d'achat connu ET un moyen d'obtention visible
+        free = val("price") is None and (val("how_to_unlock") is not None or val("purchase_from") is None)
+        if free_only and not free:
+            continue
+        if max_price is not None and val("price") is not None and val("price") > max_price:
+            continue
+        if query and query.lower() not in r["display_name"].lower():
+            continue
+        score = None
+        if weights:
+            known = [(k, w) for k, w in weights.items() if w > 0 and isinstance(val(k), (int, float))]
+            if known:
+                tw = sum(w for _, w in known)
+                score = {"value": round(sum(val(k) * w for k, w in known) / tw, 2),
+                         "coverage": round(tw / (sum(w for w in weights.values() if w > 0) or 1), 2)}
+        out.append({"id": r["id"], "name": r["display_name"], "model_id": r["model_id"],
+                    "variant_type": r["variant_type"], "class": cls, "image": media.get(r["id"]),
+                    "stats": {k: val(k) for k in WEAPON_STATS}, "price": val("price"),
+                    "capacity": val("capacity"), "moddable": val("moddable"),
+                    "free_hint": free, "score": score})
+    out.sort(key=(lambda x: (x["score"] is None, -(x["score"] or {}).get("value", 0))) if weights else (lambda x: x["name"]))
+    return out
+
+
+def item_detail(conn, entity_id: str) -> dict | None:
+    """Fiche véhicule OU arme, avec variantes sœurs, kits et options."""
+    if entity_id.startswith("weapon:"):
+        from . import spoiler
+        base = spoiler.get_entity(conn, entity_id)
+        if not base:
+            return None
+        wv = conn.execute("SELECT model_id, variant_type FROM weapon_variant WHERE entity_id=?", (entity_id,)).fetchone()
+        base["fields"] = _best_values(conn, [entity_id])[entity_id]
+        base["siblings"], base["kits"], base["mods"] = [], [], []
+        if wv:
+            base["variant_type"] = wv["variant_type"]
+            base["siblings"] = [dict(r) for r in conn.execute("""
+                SELECT v.id, v.display_name AS name, wv.variant_type FROM weapon_variant wv
+                JOIN visible_entity v ON v.id = wv.entity_id
+                WHERE wv.model_id = ? AND wv.entity_id <> ? ORDER BY v.display_name""", (wv["model_id"], entity_id))]
+            base["mods"] = [dict(r) for r in conn.execute("""
+                SELECT o.entity_id AS id, v.display_name AS name, mc.name_fr AS category
+                FROM variant_mod vm JOIN mod_option o ON o.entity_id = vm.option_id
+                JOIN mod_category mc ON mc.id = o.category_id
+                JOIN visible_entity v ON v.id = o.entity_id WHERE vm.variant_id = ?""", (entity_id,))]
+        base["hidden_fields"] = conn.execute(
+            "SELECT COUNT(DISTINCT field) FROM claim WHERE entity_id=? AND id NOT IN (SELECT id FROM visible_claim)",
+            (entity_id,)).fetchone()[0]
+        return base
+    return vehicle_detail(conn, entity_id)

@@ -7,6 +7,16 @@ export interface VehicleSummary {
   score: { value: number; coverage: number } | null;
 }
 
+export interface WeaponSummary {
+  id: string; name: string; model_id: string; variant_type: string; class: string | null; image: string | null;
+  stats: Record<string, number | null>; price: number | null; capacity: number | null; moddable: string | null;
+  free_hint: boolean; score: { value: number; coverage: number } | null;
+}
+
+export const WEAPON_STAT_LABELS: Record<string, string> = {
+  damage: "Dégâts", accuracy: "Précision", weapon_handling: "Maniabilité", range: "Portée",
+};
+
 export interface FieldValue {
   value: unknown; kind: "official" | "community" | "subjective"; contradiction: boolean;
   sources: { source: string; url: string | null; value: unknown; status: string; observed_at: string }[];
@@ -63,6 +73,7 @@ export const api = {
   hint: (id: string) => req<EntityFull>(`/api/entity/${encodeURIComponent(id)}/hint`, { method: "POST" }),
   revealName: (id: string) => req<EntityFull>(`/api/entity/${encodeURIComponent(id)}/reveal-name?confirm=true`, { method: "POST" }),
   solution: (id: string) => req<EntityFull>(`/api/entity/${encodeURIComponent(id)}/solution?confirm=true`, { method: "POST" }),
+  weapons: (params: URLSearchParams) => req<WeaponSummary[]>(`/api/weapons?${params}`),
   garage: () => req<{ id: string; name: string; status: string }[]>("/api/garage"),
   setStatus: (id: string, status: string) => req(`/api/status/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify({ status }) }),
 };
@@ -78,7 +89,8 @@ export const FIELD_LABELS: Record<string, string> = {
   price: "Prix", sell_price_stolen: "Revente (volé)", style: "Style", era: "Époque",
   security: "Sécurité", access: "Accès", tracker: "Traceur", can_register: "Immatriculable",
   standout_set: "Collection", specialist: "Spécialiste", body_condition: "État",
-  game_edition: "Édition", how_to_unlock: "Déblocage", location_text: "Emplacement",
+  game_edition: "Édition", capacity: "Capacité", purchase_from: "Achat", moddable: "Personnalisable",
+  ammo_upgrade: "Amélioration munitions", ...{ damage: "Dégâts", accuracy: "Précision", weapon_handling: "Maniabilité", range: "Portée" }, how_to_unlock: "Déblocage", location_text: "Emplacement",
   ...STAT_LABELS,
 };
 
@@ -89,4 +101,6 @@ export const RELIABILITY_FR: Record<string, string> = {
   confirmed: "Confirmé", probable: "Probable", to_verify: "À vérifier", theory: "Théorie",
   contradicted: "Contredit", obsolete: "Obsolète",
 };
-export const entityLink = (id: string) => id.startsWith("vehicle:") ? `/vehicules/${encodeURIComponent(id)}` : `/fiche/${encodeURIComponent(id)}`;
+export const entityLink = (id: string) =>
+  id.startsWith("vehicle:") ? `/vehicules/${encodeURIComponent(id)}`
+  : id.startsWith("weapon:") ? `/armes/${encodeURIComponent(id)}` : `/fiche/${encodeURIComponent(id)}`;

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api, DRIVETRAIN_FR, FIELD_LABELS, KIND_LABELS, STAT_LABELS, Stats, VehicleDetail } from "../api";
+import { api, DRIVETRAIN_FR, FIELD_LABELS, KIND_LABELS, STAT_LABELS, VehicleDetail, WEAPON_STAT_LABELS } from "../api";
 import { StatBars } from "./Vehicles";
 
 const ORDER = ["manufacturer", "class", "based_on", "price", "seats", "drivetrain", "gears", "weight_kg",
@@ -24,18 +24,21 @@ export default function VehicleDetailPage() {
   if (err) return <div className="page"><p className="notice">{err}</p></div>;
   if (!d) return <div className="page muted">Chargement…</div>;
 
-  const stats = Object.fromEntries(Object.keys(STAT_LABELS).map((k) => [k, (d.fields[k]?.value as number) ?? null])) as Stats;
-  const keys = [...ORDER.filter((k) => d.fields[k]), ...Object.keys(d.fields).filter((k) => !ORDER.includes(k) && !(k in STAT_LABELS))];
+  const isWeapon = d.id.startsWith("weapon:");
+  const labels = isWeapon ? WEAPON_STAT_LABELS : STAT_LABELS;
+  const stats = Object.fromEntries(Object.keys(labels).map((k) => [k, (d.fields[k]?.value as number) ?? null]));
+  const keys = [...ORDER.filter((k) => d.fields[k]), ...Object.keys(d.fields).filter((k) => !ORDER.includes(k) && !(k in labels))];
+  const back = isWeapon ? "/armes" : "/vehicules";
 
   return (
     <div className="page">
-      <Link to="/vehicules" className="muted small">← Véhicules</Link>
+      <Link to={back} className="muted small">← {isWeapon ? "Armes" : "Véhicules"}</Link>
       <h1>{d.name}</h1>
       {d.media[0] ? <img className="thumb" src={d.media[0]} alt="" referrerPolicy="no-referrer" /> : <div className="thumb" />}
       {d.missable_warning && <p className="notice">⚠ Ce véhicule peut devenir définitivement inaccessible.</p>}
 
       <div className="row" style={{ margin: "14px 0" }}>
-        {GARAGE.map(([k, l]) => (
+        {(isWeapon ? GARAGE.filter(([k]) => k !== "lost") : GARAGE).map(([k, l]) => (
           <button key={k} className={`chip ${status === k ? "on" : ""}`}
             onClick={() => api.setStatus(d.id, k).then(() => setStatus(k))}>{l}</button>
         ))}
@@ -43,8 +46,8 @@ export default function VehicleDetailPage() {
 
       <div className="card">
         <div className="row"><h2 style={{ margin: 0 }}>Statistiques</h2><span className="spacer" />
-          {d.fields.speed && <span className={`badge kind-${d.fields.speed.kind}`}>{KIND_LABELS[d.fields.speed.kind]}</span>}</div>
-        <div style={{ marginTop: 10 }}><StatBars stats={stats} /></div>
+          {(() => { const f = d.fields[Object.keys(labels)[0]]; return f && <span className={`badge kind-${f.kind}`}>{KIND_LABELS[f.kind]}</span>; })()}</div>
+        <div style={{ marginTop: 10 }}><StatBars stats={stats} labels={labels} /></div>
       </div>
 
       <h2>Fiche</h2>
@@ -78,7 +81,7 @@ export default function VehicleDetailPage() {
 
       {!!d.siblings?.length && (<>
         <h2>Autres variantes</h2>
-        <div className="row">{d.siblings.map((s) => <Link key={s.id} className="chip" to={`/vehicules/${encodeURIComponent(s.id)}`}>{s.name}</Link>)}</div>
+        <div className="row">{d.siblings.map((s) => <Link key={s.id} className="chip" to={`${back}/${encodeURIComponent(s.id)}`}>{s.name}</Link>)}</div>
       </>)}
       <h2>Kits et personnalisations</h2>
       {d.kits?.length || d.mods?.length ? (
