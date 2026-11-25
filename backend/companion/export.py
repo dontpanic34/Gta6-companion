@@ -30,8 +30,22 @@ def build(db_path: str) -> dict:
             details[v["id"]] = catalog.item_detail(c, v["id"])
         for p in places:
             details[p["id"]] = api.get_entity(p["id"])
+        # Contenus verrouillés : servis UNIQUEMENT sur demande explicite (indice / solution / titre)
+        locked = {}
+        for p in places:
+            eid = p["id"]
+            hints = [r[0] for r in c.execute("SELECT body FROM activity_content WHERE entity_id=? AND level=2 "
+                                             "AND spoiler_status='evaluated' ORDER BY ord", (eid,))]
+            sol = [r[0] for r in c.execute("SELECT body FROM activity_content WHERE entity_id=? AND level=3 "
+                                           "AND spoiler_status='evaluated' ORDER BY ord", (eid,))]
+            vid = c.execute("SELECT value_json FROM claim WHERE entity_id=? AND field='video' AND status<>'obsolete'", (eid,)).fetchone()
+            name = c.execute("SELECT canonical_name FROM entity WHERE id=? AND name_status<>'safe'", (eid,)).fetchone()
+            if hints or sol or vid or name:
+                locked[eid] = {"hints": hints, "solution": sol, "video": json.loads(vid[0]) if vid else None,
+                               "name": name[0] if name else None}
         return {
-            "version": 1,
+            "version": 2,
+            "locked": locked,
             "vehicles": catalog.vehicles(c),
             "weapons": catalog.weapons(c),
             "places": places,

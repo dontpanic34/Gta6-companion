@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /** Mode hors ligne : répond aux lectures depuis l'instantané embarqué (filtré au niveau
  *  anti-spoiler le plus strict) et garde les statuts personnels sur le téléphone. */
-type Snap = {
+type Locked = { hints: string[]; solution: string[]; video: unknown; name: string | null };
+type Snap = { locked?: Record<string, Locked>;
   vehicles: any[]; weapons: any[]; places: any[]; facets: unknown; details: Record<string, any>;
   prefs: Record<string, unknown>;
 };
@@ -14,6 +15,27 @@ export function saveLocalStatus(id: string, status: string) {
   const s = statuses(); s[id] = status;
   try { localStorage.setItem(STATUS_KEY, JSON.stringify(s)); } catch { /* ignore */ }
 }
+const REVEAL_KEY = "offline_reveal_v1";
+type Reveal = { hints?: number; solution?: boolean; name?: boolean };
+const reveals = (): Record<string, Reveal> => { try { return JSON.parse(localStorage.getItem(REVEAL_KEY) ?? "{}"); } catch { return {}; } };
+function setReveal(id: string, patch: Reveal) {
+  const r = reveals(); r[id] = { ...r[id], ...patch };
+  try { localStorage.setItem(REVEAL_KEY, JSON.stringify(r)); } catch { /* ignore */ }
+}
+
+/** Applique à une fiche ce que l'utilisateur a explicitement révélé (indices, solution, titre). */
+function withReveals(d: any, lk: Locked | undefined) {
+  if (!lk) return d;
+  const r = reveals()[d.id] ?? {};
+  const n = Math.min(r.hints ?? 0, lk.hints.length);
+  const content = [...(d.content ?? []).filter((c: any) => c.level === 1),
+    ...lk.hints.slice(0, n).map((body, ord) => ({ level: 2, ord, body })),
+    ...(r.solution ? lk.solution.map((body, ord) => ({ level: 3, ord, body })) : [])];
+  const claims = [...(d.claims ?? []), ...(r.solution && lk.video ? [{ field: "video", value_json: JSON.stringify(lk.video), value_kind: "community", source_id: "gta6map", source_url: null, status: "probable" }] : [])];
+  return { ...d, content, claims, hints_remaining: lk.hints.length - n, has_solution: lk.solution.length > 0 || !!lk.video,
+    ...(r.name && lk.name ? { name: lk.name, name_hidden: false } : {}) };
+}
+
 const PREF_KEY = "offline_prefs_v1";
 const prefs = (): Record<string, unknown> => { try { return JSON.parse(localStorage.getItem(PREF_KEY) ?? "{}"); } catch { return {}; } };
 export function saveLocalPref(k: string, v: unknown) {
@@ -56,7 +78,7 @@ export async function offlineGet(path: string): Promise<unknown> {
   if (detail) {
     const d = s.details[decodeURIComponent(detail[1])];
     if (!d) throw new Error("Introuvable ou masqué (anti-spoiler)");
-    return { ...d, status: st[d.id] ?? d.status ?? null };
+    return withReveals({ ...d, status: st[d.id] ?? d.status ?? null }, s.locked?.[d.id]);
   }
   if (p === "/api/vehicles") {
     const w = q.get("use_profile") ? ((prefs().vehicle_weights ?? s.prefs.vehicle_weights) as Record<string, number>) : null;
@@ -92,6 +114,15 @@ export async function offlineGet(path: string): Promise<unknown> {
 }
 
 export async function offlineWrite(path: string, body: unknown): Promise<unknown> {
+  const rv = path.match(/^\/api\/entity\/(.+)\/(hint|solution|reveal-name)/);
+  if (rv) {
+    const id = decodeURIComponent(rv[1]);
+    const cur = reveals()[id] ?? {};
+    if (rv[2] === "hint") setReveal(id, { hints: (cur.hints ?? 0) + 1 });
+    if (rv[2] === "solution") setReveal(id, { solution: true });
+    if (rv[2] === "reveal-name") setReveal(id, { name: true });
+    return offlineGet(`/api/entity/${rv[1]}`);
+  }
   const status = path.match(/^\/api\/status\/(.+)$/);
   if (status) { const id = decodeURIComponent(status[1]); saveLocalStatus(id, (body as any).status); return { id, status: (body as any).status }; }
   const pref = path.match(/^\/api\/prefs\/(.+)$/);

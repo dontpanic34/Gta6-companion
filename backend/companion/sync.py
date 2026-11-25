@@ -87,6 +87,7 @@ def sync_gta6map(conn, client: PoliteClient, limit: int | None) -> dict:
             errors.append((u, str(e)))
     r1 = importer.import_map_locations(conn, locs)
     r2 = importer.import_secrets(conn, secrets)
+    importer.requarantine_sensitive(conn)
     from . import gazetteer
     importer.geocode_unplaced(conn, gazetteer.build(conn, Path(conn.execute("PRAGMA database_list").fetchone()[2]).parent / "gtadb-landmarks.json"))
     spoiler.reindex(conn)

@@ -65,7 +65,8 @@ def get_entity(conn: sqlite3.Connection, entity_id: str) -> dict | None:
         "missable_warning": bool(row["missable"]),
         "claims": [dict(r) for r in conn.execute(
             "SELECT field, value_json, value_kind, source_id, source_url, status, observed_at "
-            "FROM visible_claim WHERE entity_id = ? ORDER BY field", (entity_id,))],
+            "FROM visible_claim WHERE entity_id = ? AND (field <> 'video' OR EXISTS "
+            "(SELECT 1 FROM solution_unlock u WHERE u.entity_id = ?)) ORDER BY field", (entity_id, entity_id))],
         "content": [dict(r) for r in conn.execute(
             "SELECT level, ord, body FROM visible_activity_content WHERE entity_id = ? "
             "ORDER BY level, ord", (entity_id,))],

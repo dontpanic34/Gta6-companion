@@ -133,8 +133,9 @@ def import_map_locations(conn: sqlite3.Connection, locs: list, source_id: str = 
                 conn.execute(
                     "INSERT INTO entity(id,kind,canonical_name,spoiler_status,name_status,category,region_label,reliability) "
                     "VALUES (?,?,?,?,?,?,?,?)",
-                    (eid, "location", loc.name, "evaluated", "safe", loc.category_name,
-                     loc.region, "probable"))
+                    (eid, "location", loc.name, classify.category_status(loc.category_name),
+                     "safe" if classify.category_status(loc.category_name) == "evaluated" else "unknown",
+                     loc.category_name, loc.region, "probable"))
                 report.created.append(eid)
             if loc.x is not None and not conn.execute("SELECT 1 FROM location_point WHERE entity_id=?", (eid,)).fetchone():
                 conn.execute("INSERT INTO location_point(entity_id,x,y,precision) VALUES (?,?,?,?)",
@@ -176,7 +177,7 @@ def import_secrets(conn: sqlite3.Connection, secrets: list, source_id: str = "gt
             kind = CATEGORY_KIND.get(s.category or "", "easter_egg")
             alias = f"{s.category or 'Secret'} — {s.region or 'Leonida'}"
             where_st = classify.secret_text_status(s.where)
-            ent_status = "evaluated" if where_st == "evaluated" else "unknown"
+            ent_status = "evaluated" if where_st == "evaluated" and classify.category_status(s.category) == "evaluated" else "unknown"
             row = conn.execute("SELECT 1 FROM entity WHERE id=?", (eid,)).fetchone()
             if not row:
                 conn.execute(
@@ -186,18 +187,33 @@ def import_secrets(conn: sqlite3.Connection, secrets: list, source_id: str = "gt
                 report.created.append(eid)
                 if ent_status == "unknown":
                     report.quarantined.append((eid, "entity"))
-                if s.where:
-                    conn.execute("INSERT INTO activity_content(entity_id,level,ord,body,spoiler_status) VALUES (?,?,?,?,?)",
-                                 (eid, 1, 0, s.where, where_st))
-                if s.what:
-                    conn.execute("INSERT INTO activity_content(entity_id,level,ord,body,spoiler_status) VALUES (?,?,?,?,?)",
-                                 (eid, 2, 0, s.what, classify.secret_text_status(s.what)))
                 if s.image:
                     conn.execute("INSERT INTO media(entity_id,url,source_id,spoiler_status) VALUES (?,?,?,?)",
                                  (eid, s.image, source_id, "unknown"))  # miniature : peut montrer le secret
             else:
                 conn.execute("UPDATE entity SET reliability=?, region_label=COALESCE(?,region_label) WHERE id=?",
                              (s.reliability, s.region, eid))
+            # Contenus par niveau : 1 = où + prérequis, 2 = de quoi s'agit-il, 3 = comment faire
+            import re as _re
+            hint_sentences = [x.strip() for x in _re.split(r"(?<=[.!?])\s+(?=[A-ZÀ-Ý])", s.what or "") if x.strip()]
+            sections = [(1, 0, s.where), (1, 1, s.needs), (3, 0, s.how)] + [(2, i, h) for i, h in enumerate(hint_sentences)]
+            # anciens indices en trop (texte raccourci à la source) : supprimés
+            conn.execute("DELETE FROM activity_content WHERE entity_id=? AND level=2 AND ord>=?", (eid, len(hint_sentences)))
+            for level, ord_, body in sections:
+                if not body:
+                    continue
+                cur = conn.execute("SELECT id, body FROM activity_content WHERE entity_id=? AND level=? AND ord=?",
+                                   (eid, level, ord_)).fetchone()
+                st = classify.secret_text_status(body) if level < 3 else "evaluated"  # niveau 3 : affiché sur confirmation
+                if cur is None:
+                    conn.execute("INSERT INTO activity_content(entity_id,level,ord,body,spoiler_status) VALUES (?,?,?,?,?)",
+                                 (eid, level, ord_, body, st))
+                elif cur["body"] != body:
+                    conn.execute("INSERT INTO revision(table_name,row_key,before_json,after_json,origin) VALUES ('activity_content',?,?,?,?)",
+                                 (f"{eid}#{level}.{ord_}", json.dumps(cur["body"]), json.dumps(body), f"sync:{source_id}"))
+                    conn.execute("UPDATE activity_content SET body=?, spoiler_status=? WHERE id=?", (body, st, cur["id"]))
+            if s.video_ref:
+                _record_claim_raw(conn, eid, "video", s.video_ref, source_id, s.url, "evaluated", report)
             _record_claim_raw(conn, eid, "source_page", s.url, source_id, s.url, "evaluated", report)
             _record_claim_raw(conn, eid, "precision", s.precision, source_id, s.url, "evaluated", report)
             if s.creators:
@@ -234,6 +250,7 @@ def geocode_unplaced(conn: sqlite3.Connection, zones: dict) -> int:
     de lieux cités (texte « où le trouver », secteur, région). Précision = 'zone'."""
     from . import gazetteer
     placed = 0
+    used: dict[str, int] = {}
     rows = conn.execute("""
         SELECT e.id, e.region_label,
                (SELECT group_concat(body, ' ') FROM activity_content a WHERE a.entity_id = e.id AND a.level = 1) AS where_txt,
@@ -251,8 +268,13 @@ def geocode_unplaced(conn: sqlite3.Connection, zones: dict) -> int:
                     if z:
                         break
             if z:
+                # plusieurs éléments sur la même zone : spirale « tournesol » pour ne pas les empiler
+                import math
+                k = used.get(z.name, 0); used[z.name] = k + 1
+                rad = min(z.radius * 0.35, 700) * math.sqrt(k / (k + 6)) if k else 0
+                ang = k * 2.39996
                 conn.execute("INSERT INTO location_point(entity_id,x,y,precision) VALUES (?,?,?,?)",
-                             (r["id"], z.x, z.y, prec if z.level != "region" else "zone"))
+                             (r["id"], z.x + rad * math.cos(ang), z.y + rad * math.sin(ang), prec if z.level != "region" else "zone"))
                 placed += 1
     return placed
 
@@ -278,3 +300,14 @@ def resolve_on_demand(conn: sqlite3.Connection, name: str, client=None) -> str |
     vid = f"vehicle:{item.base_model_slug or item.slug}:{'std' if not item.base_model_slug else item.slug}"
     reclassify_catalog_names(conn)
     return vid
+
+
+def requarantine_sensitive(conn: sqlite3.Connection) -> int:
+    """Applique a posteriori la règle des catégories sensibles (jamais l'inverse)."""
+    n = 0
+    with conn:
+        for (eid, cat) in conn.execute("SELECT id, category FROM entity WHERE category IS NOT NULL").fetchall():
+            if classify.category_status(cat) == "unknown":
+                n += conn.execute("UPDATE entity SET spoiler_status='unknown', name_status='unknown' "
+                                  "WHERE id=? AND spoiler_status='evaluated'", (eid,)).rowcount
+    return n

@@ -67,3 +67,13 @@ def secret_text_status(text: str | None) -> str:
     if not text:
         return "unknown"
     return "unknown" if FR_NARRATIVE.search(text) else "evaluated"
+
+
+# Catégories de marqueurs dont l'existence ou le nom révèle l'histoire ou un personnage :
+# masquées jusqu'à évaluation manuelle (ou mapping de progression).
+SENSITIVE_CATEGORIES = re.compile(
+    r"chapitre|final|mission|contact|criminel|troph|manquable|épilogue|epilogue|histoire|story|personnage", re.I)
+
+
+def category_status(category: str | None) -> str:
+    return "unknown" if category and SENSITIVE_CATEGORIES.search(category) else "evaluated"

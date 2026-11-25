@@ -54,7 +54,10 @@ class Secret:
     reliability: str = "to_verify"
     creators: int | None = None
     image: str | None = None
-    video: str | None = None
+    video: str | None = None          # libellé (ex. « Voir la vidéo sur TikTok · @x »)
+    how: str | None = None            # « Comment l'obtenir / y aller » -> niveau 3 (solution)
+    needs: str | None = None          # « Il te faut » -> niveau 1 (prérequis)
+    video_ref: dict | None = None     # {"provider": "yt"|"tt", "id": …, "start": s}
 
 
 def _clean(s: str | None) -> str | None:
@@ -140,6 +143,19 @@ def parse_secret(url: str, page: str) -> Secret:
 
     s.where = section(r"Où le trouver")
     s.what = section(r"De quoi s(?:’|')agit-il")
+    s.how = section(r"Comment (?:l(?:’|')obtenir|y aller|faire|le d[ée]clencher)")
+    s.needs = section(r"(?:Il (?:te|vous) faut|Pr[ée]requis|Conditions)")
+    if s.how and not s.needs:  # « … Prérequis : de nuit… » à la fin de la solution -> rubrique « Il te faut »
+        m = re.search(r"\s*Pr[ée]requis\s*:\s*(.+)$", s.how)
+        if m:
+            s.needs, s.how = m.group(1).strip(), s.how[:m.start()].strip()
+    vb = re.search(r'<button class="vid[^"]*"([^>]*)>', page)
+    if vb:
+        attrs = dict(re.findall(r'data-([a-z]+)="([^"]*)"', vb.group(1)))
+        if attrs.get("yt"):
+            s.video_ref = {"provider": "yt", "id": attrs["yt"], "start": int(attrs.get("t") or 0)}
+        elif attrs.get("tt"):
+            s.video_ref = {"provider": "tt", "id": attrs["tt"], "start": 0}
     img = re.search(r'<a class="hero"[^>]*><img src="([^"]+)"', page)
     s.image = BASE + img.group(1) if img else None
     vid = re.search(r'<button class="vid[^"]*"[^>]*>(.*?)</button>', page, re.S)

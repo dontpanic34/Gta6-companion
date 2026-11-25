@@ -64,3 +64,29 @@ def test_map_locations_import():
     assert c.execute("SELECT COUNT(*) FROM visible_location").fetchone()[0] == 1
     assert {e["display_name"] for e in spoiler.list_visible(c, "location")} == {
         "Banner Hotel & Spa Parking Stunt Jump", "Apollo Aggregates South"}
+
+
+SECRET_FULL = SECRET.replace("</p>\n<h2><span data-nosnippet>De quoi", "</p>\n<h2><span data-nosnippet>De quoi") + """
+<h2><span data-nosnippet>Comment l’obtenir</span></h2><p>Parlez aux CANARI, montez dans le van.</p>
+<h2><span data-nosnippet>Vidéo</span></h2><button class="vid yt" type="button" data-yt="abc123" data-t="42">Voir</button>
+"""
+
+
+def test_solution_and_video_only_after_explicit_unlock():
+    c = db.connect()
+    importer.import_secrets(c, [gta6map.parse_secret("https://gta6map.city/fr/secrets/z/", SECRET_FULL)])
+    spoiler.reindex(c)
+    e = spoiler.get_entity(c, "secret:z")
+    assert "CANARI" not in str(e) and all(x["field"] != "video" for x in e["claims"])
+    assert spoiler.search(c, "van") == []
+    spoiler.unlock_solution(c, "secret:z", confirmed=True)
+    e = spoiler.get_entity(c, "secret:z")
+    assert any(x["level"] == 3 and "van" in x["body"] for x in e["content"])
+    assert any(x["field"] == "video" and "abc123" in x["value_json"] for x in e["claims"])
+
+
+def test_story_categories_are_quarantined():
+    page = CATEGORY.replace('"name":"Saut spectaculaire"', '"name":"Chapitre final"').replace("stunt-jump", "final-chapter")
+    c = db.connect()
+    importer.import_map_locations(c, gta6map.parse_category("https://gta6map.city/fr/locations/final-chapter/", page))
+    assert spoiler.list_visible(c, "location") == []
