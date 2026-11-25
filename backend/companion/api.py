@@ -169,7 +169,7 @@ PLACE_KINDS = ("location", "secret_quest", "random_encounter", "dynamic_event", 
 
 @app.get("/api/places", dependencies=[Depends(auth)])
 def places(region: str | None = None, category: str | None = None, kind: str | None = None,
-           hide_done: bool = False, secrets_only: bool = False, limit: int = 3000):
+           hide_done: bool = False, secrets_only: bool = False, limit: int = 3000, include_services: bool = False):
     c = conn()
     sql = f"""SELECT v.id, v.kind, v.display_name AS name, v.category, v.region_label AS region,
                      v.reliability, p.x, p.y, p.precision, u.status
@@ -190,6 +190,9 @@ def places(region: str | None = None, category: str | None = None, kind: str | N
         sql += " AND COALESCE(u.status,'') NOT IN ('discovered','done')"
     sql += " ORDER BY v.category, v.display_name LIMIT ?"; args.append(limit)
     rows = [dict(r) for r in c.execute(sql, args)]
+    if not include_services:  # seulement les vrais points d'intérêt
+        from .classify import is_poi
+        rows = [r for r in rows if r["id"].startswith("secret:") or is_poi(r["category"])]
     link_catalog(c, rows)
     return rows
 
@@ -216,7 +219,9 @@ def link_catalog(c, rows: list[dict]) -> None:
 @app.get("/api/places/facets", dependencies=[Depends(auth)])
 def place_facets():
     c = conn()
-    q = f"FROM visible_entity WHERE kind IN ({','.join('?' * len(PLACE_KINDS))})"
+    from .classify import NON_POI
+    c.create_function("is_service", 1, lambda cat: 1 if cat and NON_POI.search(cat) else 0)
+    q = f"FROM visible_entity WHERE kind IN ({','.join('?' * len(PLACE_KINDS))}) AND NOT is_service(category)"
     return {
         "regions": [dict(r) for r in c.execute(
             f"SELECT region_label AS name, COUNT(*) AS n {q} AND region_label IS NOT NULL GROUP BY 1 ORDER BY 2 DESC", PLACE_KINDS)],

@@ -19,7 +19,7 @@ import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import catalog, gazetteer, spoiler
+from . import catalog, classify, gazetteer, spoiler
 
 log = logging.getLogger(__name__)
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
@@ -91,6 +91,8 @@ class Assistant:
             if not include_done and r["status"] in ("done", "discovered"):
                 continue
             if family and family.lower() not in (r["category"] or "").lower():
+                continue
+            if not classify.is_poi(r["category"]):
                 continue
             d = ((r["x"] - loc["x"]) ** 2 + (r["y"] - loc["y"]) ** 2) ** 0.5
             if d <= radius:

@@ -77,3 +77,17 @@ SENSITIVE_CATEGORIES = re.compile(
 
 def category_status(category: str | None) -> str:
     return "unknown" if category and SENSITIVE_CATEGORIES.search(category) else "evaluated"
+
+
+# Points d'intérêt : on écarte les commerces/services du quotidien, déjà visibles en jeu
+# (distributeurs, nourriture, boissons, vêtements, transports…). Ammu-Nation, tuning,
+# Pay 'n' Spray, garages à vendre, stands de tir restent : ils ont un vrai intérêt.
+NON_POI = re.compile(
+    r"arrêt de bus|^gare$|ferry|distributeur|borne de recharge|street food|fast-food|cafés|^bar$|^club$|alcool|"
+    r"supérette|électronique|station-service|souvenirs|vêtements|tenues|décontracté|friperie|chaussures|coiffure|"
+    r"tatouage|prêts|lavage|location|troc|delights|hit 'n' run|animal crackers|san4san|kolt|guardia|ptt youngin|"
+    r"kingfishers|^m7$|polilla|nineinine|top fun drones|bus", re.I)
+
+
+def is_poi(category: str | None) -> bool:
+    return not (category and NON_POI.search(category))

@@ -139,3 +139,11 @@ def test_weapons_variants_and_free_filter():
     assert d["variant_type"] == "named" and [s["name"] for s in d["siblings"]] == ["Shrewsbury SMS-01"]
     ranked = catalog.weapons(c, weights={"damage": 1})
     assert ranked[0]["name"] == "Gun Nut SMS-01"
+
+
+def test_only_real_points_of_interest():
+    from companion.classify import is_poi
+    for cat in ["Distributeur", "Arrêt de bus", "Street food", "Bar", "Supérette", "Borne de recharge", "Coiffure et beauté"]:
+        assert not is_poi(cat), cat
+    for cat in ["Saut spectaculaire", "Véhicule d’exception", "Armes cachées et uniques", "Ammu-Nation", "Pay 'n' Spray", "Coffre-fort", None]:
+        assert is_poi(cat), cat
