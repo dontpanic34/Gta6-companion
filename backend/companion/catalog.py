@@ -10,6 +10,31 @@ import sqlite3
 
 STATS = ["speed", "acceleration", "handling_road", "handling_offroad", "strength"]
 
+import re as _re
+_CANON = {"suvs": "SUVs", "suv": "SUVs", "smg": "SMGs", "smgs": "SMGs", "lmg": "LMGs", "lmgs": "LMGs", "utility": "Commercial",
+          "service": "Commercial", "industrial": "Commercial", "trucks": "Commercial", "throwable": "Throwables",
+          "throwables": "Throwables", "launchers": "Heavy", "heavy": "Heavy", "melee": "Melee"}
+_WEAPON_GUESS = [(r"shocker|stun|taser|\.357|es9|k17|dw9|drifter|hobo|pistol|revolver|\.38|\.50|handgun|ap pistol|deagle|eagle", "Handguns"), (r"smg|sub-?machine|micro|uzi|vf5|pd-90", "SMGs"),
+                 (r"shotgun|az1200|pump|sawed", "Shotguns"), (r"sniper|marksman|bolt action|longshot|sms-01|laird|ff-50|ff-sr", "Sniper Rifles"),
+                 (r"assault|carbine|rifle|556|drx|ar-|battle rifle", "Assault Rifles"), (r"machine gun|lmg|minigun|m249|m60", "LMGs"), (r"1922|tommy", "SMGs"),
+                 (r"grenade|molotov|fire bottle|flashbang|bomb|sticky|tear gas|ball", "Throwables"),
+                 (r"rpg|launcher|h-at", "Heavy"),
+                 (r"fist|switchblade|knife|bat|crowbar|knuckle|machete|hammer|club|golf|wrench|hatchet|axe|baton|bottle|pool cue|shovel|katana|sword|dagger|nipper", "Melee"),
+                 (r"binocular|camera|parachute|flashlight|phone|fishing|key|cloner|armor|vest|scuba|jerry", "Gear")]
+
+
+def canonical_class(cls, name: str = "", kind: str = "vehicle"):
+    """Une seule orthographe par classe ; « Boats , Emergency » -> « Boats » ; arme sans classe -> déduite du nom."""
+    if cls:
+        first = str(cls).split(",")[0].strip()
+        return _CANON.get(first.lower(), first)
+    if kind == "weapon":
+        n = name.lower()
+        for rx, c in _WEAPON_GUESS:
+            if _re.search(rx, n):
+                return c
+    return None
+
 
 def _best_values(conn: sqlite3.Connection, entity_ids: list[str]) -> dict[str, dict]:
     """Pour chaque entité/champ : valeur retenue + toutes les valeurs (contradictions)."""
@@ -71,7 +96,7 @@ def vehicles(conn: sqlite3.Connection, *, min_stats: dict[str, float] | None = N
     for r in rows:
         f = vals[r["id"]]
         val = lambda k: f.get(k, {}).get("value")  # noqa: E731
-        cls = val("class") or r["class"]
+        cls = canonical_class(val("class") or r["class"], r["display_name"], "vehicle")
         if classes and cls not in classes:
             continue
         if exclude_classes and cls in exclude_classes:
@@ -159,7 +184,7 @@ def weapons(conn: sqlite3.Connection, *, classes: list[str] | None = None,
     for r in rows:
         f = vals[r["id"]]
         val = lambda k: f.get(k, {}).get("value")  # noqa: E731
-        cls = val("class") or r["class"]
+        cls = canonical_class(val("class") or r["class"], r["display_name"], "weapon")
         if classes and cls not in classes:
             continue
         if min_stats and any((val(k) is None or val(k) < v) for k, v in min_stats.items()):

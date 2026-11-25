@@ -5,24 +5,46 @@ type IconName = keyof typeof icons;
 export interface Family { id: string; label: string; color: string; icon: IconName; match: RegExp }
 
 export const FAMILIES: Family[] = [
-  { id: "secrets", label: "Secrets", color: "#ff4f8b", icon: "Sparkles", match: /secret|myst|easter|créature|rencontre|référence|caméo|cachés?/i },
-  { id: "collect", label: "Caches & objets", color: "#f5b82e", icon: "Gem", match: /coffre|safe|planque|argent|collect|trésor|cache|carte|card|signal/i },
-  { id: "vehicles", label: "Véhicules", color: "#2dd4bf", icon: "CarFront", match: /véhicule|vehicle|voiture|garage|concession|bateau|avion/i },
-  { id: "weapons", label: "Armes", color: "#f97316", icon: "Crosshair", match: /arme|weapon|ammu|munition/i },
-  { id: "stunts", label: "Sauts & courses", color: "#a78bfa", icon: "Flag", match: /saut|stunt|course|race|knife|couteau|pont|bridge/i },
-  { id: "activities", label: "Activités", color: "#4ade80", icon: "Trophy", match: /activit|sport|pêche|fishing|basket|golf|tennis|méditation|tir|shooting|arcade|club/i },
-  { id: "shops", label: "Commerces", color: "#60a5fa", icon: "ShoppingBag", match: /magasin|store|shop|bar|café|restau|food|station|essence|gas|atm|distributeur|coiffeur|tatou|vêtement|pharmac|banque|borne|charg/i },
-  { id: "properties", label: "Propriétés", color: "#e879f9", icon: "House", match: /propriét|property|safehouse|maison|appart/i },
-  { id: "transport", label: "Transports", color: "#94a3b8", icon: "BusFront", match: /bus|arrêt|métro|train|taxi|transport/i },
+  { id: "secrets", label: "Secrets", color: "#ff3d8b", icon: "Sparkles", match: /easter|myst|créature|rencontre|référence|caméo|lieux cachés|curiosit|astuce|sculpture|monument|secret/i },
+  { id: "collect", label: "Caches & objets", color: "#ffd166", icon: "Gem", match: /coffre|argent|cache|trésor|carte|flamant|magazine|playlist|mural|collect/i },
+  { id: "vehicles", label: "Véhicules", color: "#2ee6d6", icon: "CarFront", match: /véhicule|vehicle/i },
+  { id: "weapons", label: "Armes", color: "#ff7a1a", icon: "Crosshair", match: /arme|ammu|stand de tir|weapon/i },
+  { id: "stunts", label: "Sauts & courses", color: "#a78bfa", icon: "Flag", match: /saut|sous le pont|rase-mottes|course|raceway|speedway|mud club/i },
+  { id: "activities", label: "Activités", color: "#4ade80", icon: "Trophy", match: /activit|basket|pêche|arcade|billard|golf|salle de sport|méditation/i },
+  { id: "garages", label: "Garages & tuning", color: "#60a5fa", icon: "Wrench", match: /garage|tuning|pay 'n' spray/i },
 ];
 export const OTHER: Family = { id: "other", label: "Autres", color: "#cbd5e1", icon: "MapPin", match: /.*/ };
 export const ALL_FAMILIES = [...FAMILIES, OTHER];
 
+/** Table EXPLICITE catégorie réelle -> famille (une catégorie = une seule famille).
+ *  Les regex ci-dessus ne servent que de repli pour une catégorie nouvelle. */
+const CATEGORY_FAMILY: Record<string, string> = {
+  "Easter eggs": "secrets", "Références et caméos": "secrets", "Lieux cachés": "secrets", "Créatures et rencontres": "secrets",
+  "Mystères": "secrets", "Curiosité": "secrets", "Astuces et mécaniques": "secrets", "Sculpture": "secrets", "Monument": "secrets",
+  "Coffre-fort": "collect", "Argent et caches": "collect", "Cartes, flamants et plus": "collect", "Trésors et sous-marin": "collect",
+  "Magazine": "collect", "Playlist unique": "collect", "1010 Mural": "collect",
+  "Véhicule d’exception": "vehicles", "Véhicules rares": "vehicles", "Moses Vehicle": "vehicles",
+  "Armes cachées et uniques": "weapons", "Ammu-Nation": "weapons", "Stand de tir": "weapons",
+  "Sous le pont": "stunts", "Saut spectaculaire": "stunts", "Vol en rase-mottes": "stunts", "Saut en base jump": "stunts",
+  "Défi de course": "stunts", "Thrillbilly Mud Club": "stunts", "Gellhorn Raceway": "stunts", "Ambrosia Raceway": "stunts",
+  "Hamlet Boone Speedway": "stunts", "Intro aux courses": "stunts",
+  "Activités": "activities", "Panier de basket": "activities", "Spot de pêche": "activities", "Borne d’arcade": "activities",
+  "Billard": "activities", "Mini-golf": "activities", "Terrain de golf": "activities", "Salle de sport": "activities",
+  "Lieux de méditation": "activities",
+  "Pay 'n' Spray": "garages", "Garage de tuning": "garages", "Garage à vendre": "garages", "Garage": "garages",
+};
+
 const cache = new Map<string, Family>();
+/** Famille d'un lieu : d'après sa CATÉGORIE (un secret « Véhicules rares » est un véhicule). */
 export function familyOf(category: string | null, isSecret: boolean): Family {
-  if (isSecret) return FAMILIES[0];
-  const key = category ?? "";
-  if (!cache.has(key)) cache.set(key, FAMILIES.find((f) => f.match.test(key)) ?? OTHER);
+  const key = `${isSecret ? "s:" : ""}${category ?? ""}`;
+  if (!cache.has(key)) {
+    const id = category ? CATEGORY_FAMILY[category] : undefined;
+    const fam = (id && FAMILIES.find((f) => f.id === id))
+      || (category && FAMILIES.find((f) => f.match.test(category)))
+      || (isSecret ? FAMILIES[0] : OTHER);
+    cache.set(key, fam);
+  }
   return cache.get(key)!;
 }
 
@@ -68,7 +90,7 @@ export function categoryStyle(category: string | null, isSecret: boolean): CatSt
   if (!catCache.has(key)) {
     const hit = CATEGORY_STYLE.find(([rx]) => rx.test(category ?? ""));
     const fam = familyOf(category, isSecret);
-    catCache.set(key, hit ? hit[1] : { icon: fam.icon, color: fam.color });
+    catCache.set(key, { icon: hit ? hit[1].icon : fam.icon, color: fam.color });
   }
   return catCache.get(key)!;
 }
@@ -102,10 +124,10 @@ const CLASS_STYLE: [RegExp, CatStyle][] = [
   [/off-?road|tout/i, C("Mountain", "#a3e635")], [/suv|pickup/i, C("Truck", "#84cc16")], [/sedan|berline/i, C("Car", "#60a5fa")],
   [/coupe|compact/i, C("Car", "#38bdf8")], [/moto|motorcycle/i, C("Bike", "#facc15")], [/cycle|vélo/i, C("Bike", "#a3e635")],
   [/boat|bateau/i, C("Sailboat", "#38bdf8")], [/plane|avion|aircraft/i, C("Plane", "#c084fc")], [/heli/i, C("Plane", "#c084fc")],
-  [/van|commercial|industrial/i, C("Truck", "#94a3b8")], [/emergency|police|urgence/i, C("Siren", "#3b82f6")],
+  [/van|commercial|industrial/i, C("Truck", "#94a3b8")], [/train/i, C("TrainFront", "#94a3b8")], [/emergency|police|urgence/i, C("Siren", "#3b82f6")],
   [/handgun|pistol/i, C("Crosshair", "#f97316")], [/smg/i, C("Crosshair", "#fb923c")], [/assault|tactical/i, C("Crosshair", "#ef4444")],
   [/sniper/i, C("Target", "#c084fc")], [/shotgun/i, C("Crosshair", "#facc15")], [/lmg|heavy|launcher/i, C("Bomb", "#ef4444")],
-  [/melee|mêlée/i, C("Sword", "#94a3b8")], [/throw/i, C("Bomb", "#a3e635")],
+  [/melee|mêlée/i, C("Sword", "#94a3b8")], [/throw/i, C("Bomb", "#a3e635")], [/gear|équipement/i, C("Backpack", "#cbd5e1")],
 ];
 export function classStyle(cls: string | null): CatStyle {
   const hit = CLASS_STYLE.find(([rx]) => rx.test(cls ?? ""));
