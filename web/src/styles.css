@@ -216,3 +216,43 @@ html.native { --safe-top: max(env(safe-area-inset-top, 0px), 36px); --safe-botto
   background: var(--surface-2); color: var(--text); font-size: 12px; font-weight: 700; letter-spacing: .02em; }
 .act.on { background: #fff; color: #0d0b14; border-color: #fff; }
 .mapwrap:has(.placesheet) .leaflet-control-attribution { display: none; }
+
+/* ---------- Catalogue véhicules / armes ---------- */
+.catalog { position: fixed; inset: 0 0 calc(72px + var(--safe-bottom)) 0; display: flex; flex-direction: column; }
+.cat-head { display: flex; align-items: baseline; gap: 10px; padding: calc(12px + var(--safe-top)) 16px 6px; }
+.cat-head h1 { margin: 0; font-size: 26px; letter-spacing: -.02em; }
+.cat-list { flex: 1; overflow-y: auto; padding: 4px 12px 12px; display: grid; gap: 8px; align-content: start; }
+.vrow { display: flex; align-items: stretch; gap: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 8px; }
+.vrow-main { flex: 1; display: flex; gap: 12px; min-width: 0; }
+.vthumb { position: relative; width: 112px; height: 76px; flex: none; border-radius: 12px; overflow: hidden; display: grid; place-items: center; }
+.vthumb img { width: 100%; height: 100%; object-fit: cover; }
+.vclass { position: absolute; left: 6px; bottom: 6px; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; border: 2px solid #0d0b14; }
+.vinfo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.statmini { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 10px; margin-top: 2px; }
+.statmini > div { display: grid; grid-template-columns: 28px 1fr 22px; align-items: center; gap: 5px; font-size: 11px; }
+.statmini span { color: var(--muted); } .statmini b { font-weight: 600; text-align: right; }
+.statmini .bar { height: 4px; }
+.selbtn { width: 40px; flex: none; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); color: var(--muted); display: grid; place-items: center; }
+.selbtn.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.cat-bottom { display: grid; gap: 8px; padding: 8px 12px 10px; border-top: 1px solid var(--line); background: var(--bg); }
+.cat-bottom .chiprow { margin: 0 -12px; padding: 0 12px 2px; }
+.cat-bottom .chiprow .chip { box-shadow: none; }
+.cat-bottom .searchbar { margin: 0; height: 50px; border-radius: 16px; box-shadow: none; }
+.cat-bottom .sqbtn { width: 50px; height: 50px; box-shadow: none; }
+.sheet-h { margin: 16px 0 8px; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+
+/* ---------- Fiche véhicule / arme ---------- */
+.detail { padding-bottom: calc(90px + var(--safe-bottom)); }
+.d-hero { height: calc(230px + var(--safe-top)); display: grid; place-items: end center; overflow: hidden; }
+.d-hero img { width: 100%; height: 100%; object-fit: cover; }
+.d-body { padding: 14px 16px 0; margin-top: -18px; position: relative; background: var(--bg); border-radius: 20px 20px 0 0; }
+.d-title { margin: 0; font-size: 22px; line-height: 1.2; letter-spacing: -.01em; }
+.garage { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 14px; }
+.garage button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 2px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); font-size: 12px; font-weight: 600; }
+.garage button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.d-sec { margin-top: 18px; }
+.d-sec h4 { margin: 0 0 10px; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.d-sec .stat { grid-template-columns: 120px 1fr 32px; padding: 4px 0; font-size: 14px; }
+.bar.big { height: 8px; border-radius: 4px; }
+.kvrow { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.kvrow > span:last-child { text-align: right; }

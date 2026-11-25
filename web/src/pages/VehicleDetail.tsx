@@ -1,94 +1,141 @@
-import { ChevronLeft, Lock, TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { Ban, ChevronLeft, CircleCheck, Heart, Lock, MapPinned, Search as SearchIcon, TriangleAlert } from "lucide-react";
 import { api, DRIVETRAIN_FR, FIELD_LABELS, KIND_LABELS, STAT_LABELS, VehicleDetail, WEAPON_STAT_LABELS } from "../api";
-import { StatBars } from "./Vehicles";
+import { classStyle } from "../map/categories";
+import { FamIcon } from "./MapPage";
 
-const ORDER = ["manufacturer", "class", "based_on", "price", "seats", "drivetrain", "gears", "weight_kg",
-  "model_year", "style", "era", "how_to_unlock", "location_text", "game_edition", "security", "access",
-  "tracker", "can_register", "sell_price_stolen", "standout_set"];
-const GARAGE = [["owned", "Possédé"], ["wanted", "Recherché"], ["favorite", "Favori"], ["lost", "Perdu"]];
+type Detail = Omit<VehicleDetail, "siblings"> & {
+  status?: string | null;
+  map_points?: { id: string; name: string; x: number; y: number; precision: string }[];
+  siblings?: { id: string; name: string; variant_type: string; image?: string | null }[];
+};
+
+// champs déjà affichés ailleurs (en-tête, stats) ou purement techniques
+const HIDE = new Set(["class", "manufacturer", "price", "drivetrain", "seats", "base_model"]);
+const ORDER = ["based_on", "how_to_unlock", "location_text", "game_edition", "purchase_from", "capacity", "gears", "weight_kg",
+  "model_year", "style", "era", "security", "access", "tracker", "can_register", "sell_price_stolen", "standout_set", "moddable"];
+const GARAGE = [["owned", "Possédé", CircleCheck], ["wanted", "Recherché", SearchIcon], ["favorite", "Favori", Heart], ["lost", "Perdu", Ban]] as const;
 
 function fmt(k: string, v: unknown) {
   if (k === "drivetrain" && typeof v === "string") return DRIVETRAIN_FR[v] ?? v;
   if ((k === "price" || k === "sell_price_stolen") && typeof v === "number") return `${v.toLocaleString("fr-FR")} $`;
+  if (v === "Yes") return "Oui"; if (v === "No") return "Non";
+  if (v === "Can be modified") return "Oui"; if (v === "Cannot be modified") return "Non";
   return String(v);
 }
 
 export default function VehicleDetailPage() {
   const { id = "" } = useParams();
-  const [d, setD] = useState<VehicleDetail | null>(null);
+  const nav = useNavigate();
+  const [d, setD] = useState<Detail | null>(null);
   const [err, setErr] = useState("");
-  const [status, setStatus] = useState<string | null>(null);
 
-  useEffect(() => { setD(null); api.vehicle(id).then(setD).catch((e) => setErr(e.message)); }, [id]);
+  useEffect(() => { setD(null); window.scrollTo(0, 0); api.vehicle(id).then((x) => setD(x as Detail)).catch((e) => setErr(e.message)); }, [id]);
   if (err) return <div className="page"><p className="notice">{err}</p></div>;
   if (!d) return <div className="page muted">Chargement…</div>;
 
   const isWeapon = d.id.startsWith("weapon:");
-  const labels = isWeapon ? WEAPON_STAT_LABELS : STAT_LABELS;
-  const stats = Object.fromEntries(Object.keys(labels).map((k) => [k, (d.fields[k]?.value as number) ?? null]));
-  const keys = [...ORDER.filter((k) => d.fields[k]), ...Object.keys(d.fields).filter((k) => !ORDER.includes(k) && !(k in labels))];
-  const back = isWeapon ? "/armes" : "/vehicules";
+  const route = isWeapon ? "/armes" : "/vehicules";
+  const labels: Record<string, string> = isWeapon ? WEAPON_STAT_LABELS : STAT_LABELS;
+  const f = (k: string) => d.fields[k]?.value as never;
+  const st = classStyle(f("class"));
+  const keys = [...ORDER.filter((k) => d.fields[k]), ...Object.keys(d.fields).filter((k) => !ORDER.includes(k) && !HIDE.has(k) && !(k in labels))];
+  const statKind = d.fields[Object.keys(labels)[0]]?.kind;
+  const setStatus = (s: string) => {
+    const next = d.status === s ? "to_discover" : s;
+    api.setStatus(d.id, next).then(() => setD({ ...d, status: next }));
+  };
 
   return (
-    <div className="page">
-      <Link to={back} className="muted small"><ChevronLeft size={16} style={{ verticalAlign: "-3px" }} />{isWeapon ? "Armes" : "Véhicules"}</Link>
-      <h1>{d.name}</h1>
-      {d.media[0] ? <img className="thumb" src={d.media[0]} alt="" referrerPolicy="no-referrer" /> : <div className="thumb" />}
-      {d.missable_warning && <p className="notice"><TriangleAlert size={15} style={{ verticalAlign: "-3px" }} /> Ce véhicule peut devenir définitivement inaccessible.</p>}
-
-      <div className="row" style={{ margin: "14px 0" }}>
-        {(isWeapon ? GARAGE.filter(([k]) => k !== "lost") : GARAGE).map(([k, l]) => (
-          <button key={k} className={`chip ${status === k ? "on" : ""}`}
-            onClick={() => api.setStatus(d.id, k).then(() => setStatus(k))}>{l}</button>
-        ))}
+    <div className="detail">
+      <button className="iconback" onClick={() => nav(-1)} aria-label="Retour"><ChevronLeft size={24} /></button>
+      <div className="d-hero" style={{ background: `linear-gradient(160deg, ${st.color}40, var(--bg) 70%)` }}>
+        {d.media[0] && <img src={d.media[0]} alt="" referrerPolicy="no-referrer" onError={(e) => (e.currentTarget.style.display = "none")} />}
       </div>
+      <div className="d-body">
+        <div className="row" style={{ flexWrap: "nowrap", gap: 10 }}>
+          <span className="famicon big" style={{ background: st.color }}><FamIcon f={st} size={20} color="#0d0b14" /></span>
+          <div style={{ minWidth: 0 }}>
+            <h1 className="d-title">{d.name}</h1>
+            <div className="small muted">{f("manufacturer") ?? ""}{d.variant_type && d.variant_type !== "standard" ? " · variante" : ""}</div>
+          </div>
+        </div>
+        <div className="row" style={{ marginTop: 10 }}>
+          {f("class") && <span className="tag">{f("class")}</span>}
+          {f("drivetrain") && <span className="tag">{fmt("drivetrain", f("drivetrain"))}</span>}
+          {f("seats") && <span className="tag">{f("seats")} places</span>}
+          {f("price") != null && <span className="tag">{fmt("price", f("price"))}</span>}
+        </div>
+        {d.missable_warning && <p className="notice"><TriangleAlert size={15} style={{ verticalAlign: "-3px" }} /> Peut devenir définitivement inaccessible.</p>}
 
-      <div className="card">
-        <div className="row"><h2 style={{ margin: 0 }}>Statistiques</h2><span className="spacer" />
-          {(() => { const f = d.fields[Object.keys(labels)[0]]; return f && <span className={`badge kind-${f.kind}`}>{KIND_LABELS[f.kind]}</span>; })()}</div>
-        <div style={{ marginTop: 10 }}><StatBars stats={stats} labels={labels} /></div>
-      </div>
+        {!isWeapon && (
+          <div className="garage">
+            {GARAGE.map(([k, l, Icon]) => (
+              <button key={k} className={d.status === k ? "on" : ""} onClick={() => setStatus(k)}><Icon size={18} />{l}</button>
+            ))}
+          </div>
+        )}
 
-      <h2>Fiche</h2>
-      <div className="card">
-        <table className="kv"><tbody>
-          {keys.map((k) => {
-            const f = d.fields[k];
+        {(d.map_points?.length ?? 0) > 0 && (
+          <button className="btn wide" style={{ marginTop: 12 }}
+            onClick={() => nav(`/carte?x=${d.map_points![0].x}&y=${d.map_points![0].y}&z=5`)}>
+            <MapPinned size={18} /> Voir sur la carte{d.map_points!.length > 1 ? ` (${d.map_points!.length} emplacements)` : ""}</button>
+        )}
+
+        <section className="d-sec">
+          <h4>Statistiques {statKind && <span className={`badge kind-${statKind}`}>{KIND_LABELS[statKind]}</span>}</h4>
+          {Object.keys(labels).map((k) => {
+            const v = d.fields[k]?.value as number | undefined;
             return (
-              <tr key={k}>
-                <td>{FIELD_LABELS[k] ?? k}</td>
-                <td>
-                  {fmt(k, f.value)}
-                  {f.contradiction && <span className="badge warn" style={{ marginLeft: 6 }}>sources divergentes</span>}
-                  <div className="small muted">
-                    {f.sources.map((s, i) => (
-                      <span key={i}>{i > 0 && " · "}{s.url ? <a href={s.url} target="_blank" rel="noreferrer">{s.source}</a> : s.source}
-                        {f.contradiction && ` : ${fmt(k, s.value)}`}</span>
-                    ))}
-                  </div>
-                </td>
-              </tr>
+              <div className="stat" key={k}>
+                <span className="muted">{labels[k]}</span>
+                <div className="bar big"><i style={{ width: `${((v ?? 0) / 10) * 100}%`, background: `linear-gradient(90deg, ${st.color}, var(--accent))` }} /></div>
+                <span>{v ?? "—"}</span>
+              </div>
             );
           })}
-        </tbody></table>
-        {d.hidden_fields > 0 && (
-          <p className="small muted" style={{ marginTop: 10 }}>
-            <Lock size={13} style={{ verticalAlign: "-2px" }} /> {d.hidden_fields} information(s) masquée(s) par la protection anti-spoiler (progression insuffisante ou non vérifiée).
-          </p>
-        )}
-      </div>
+        </section>
 
-      {!!d.siblings?.length && (<>
-        <h2>Autres variantes</h2>
-        <div className="row">{d.siblings.map((s) => <Link key={s.id} className="chip" to={`${back}/${encodeURIComponent(s.id)}`}>{s.name}</Link>)}</div>
-      </>)}
-      <h2>Kits et personnalisations</h2>
-      {d.kits?.length || d.mods?.length ? (
-        <div className="row">{[...(d.kits ?? []).map((k) => ({ ...k, category: "Kit" })), ...(d.mods ?? [])].map((m) =>
-          <span key={m.id} className="chip">{m.category} · {m.name}</span>)}</div>
-      ) : <p className="muted small">Aucune donnée de personnalisation pour l'instant.</p>}
+        {!!d.siblings?.length && (
+          <section className="d-sec">
+            <h4>Variantes ({d.siblings.length + 1})</h4>
+            <div className="cardrow">
+              {d.siblings.map((s) => (
+                <Link key={s.id} to={`${route}/${encodeURIComponent(s.id)}`} className="minicard">
+                  {s.image ? <img src={s.image} alt="" loading="lazy" referrerPolicy="no-referrer" /> : <div className="mc-ph" />}
+                  <div className="title" style={{ fontSize: 13 }}>{s.name}</div>
+                  <div className="small muted">{s.variant_type === "standard" ? "Modèle de base" : "Variante"}</div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <section className="d-sec">
+          <h4>Infos</h4>
+          {keys.map((k) => {
+            const fv = d.fields[k];
+            return (
+              <div className="kvrow" key={k}>
+                <span className="muted">{FIELD_LABELS[k] ?? k}</span>
+                <span>{fmt(k, fv.value)}{fv.contradiction && <span className="badge warn" style={{ marginLeft: 6 }}>sources divergentes</span>}</span>
+              </div>
+            );
+          })}
+          {d.hidden_fields > 0 && <p className="small muted" style={{ marginTop: 10 }}><Lock size={13} style={{ verticalAlign: "-2px" }} /> {d.hidden_fields} info(s) masquée(s) par l'anti-spoiler.</p>}
+        </section>
+
+        {(d.kits?.length || d.mods?.length) ? (
+          <section className="d-sec"><h4>Kits et personnalisations</h4>
+            <div className="row">{[...(d.kits ?? []).map((k) => ({ ...k, category: "Kit" })), ...(d.mods ?? [])].map((m) => <span key={m.id} className="chip">{m.category} · {m.name}</span>)}</div>
+          </section>
+        ) : null}
+
+        <p className="small muted" style={{ margin: "16px 0 8px" }}>
+          Sources : {[...new Set(Object.values(d.fields).flatMap((x) => x.sources.map((s) => s.source)))].join(", ") || "—"}
+        </p>
+      </div>
     </div>
   );
 }

@@ -95,7 +95,8 @@ def import_items(conn: sqlite3.Connection, items: list[ParsedItem], source_id: s
             variant_id = f"{model_id}:{'std' if not it.base_model_slug else it.slug}"
             vtype = "standard" if not it.base_model_slug else "named"
             label = "Véhicule" if prefix == "vehicle" else "Arme"
-            alias = f"{label} unique — {model_name}" if it.base_model_slug else None
+            desc = " · ".join(str(x) for x in (it.fields.get("class"), it.fields.get("manufacturer")) if x)
+            alias = f"{label} unique" + (f" — {desc}" if desc else "")
             _upsert_entity(conn, variant_id, f"{prefix}_variant", it.name, report, alias)
             conn.execute(f"INSERT OR IGNORE INTO {prefix}_variant(entity_id, model_id, variant_type) VALUES (?,?,?)",
                          (variant_id, model_id, vtype))
@@ -233,13 +234,15 @@ def reclassify_catalog_names(conn: sqlite3.Connection) -> int:
             st = classify.name_status(r["kind"], r["canonical_name"])
             n += conn.execute("UPDATE entity SET name_status=? WHERE id=? AND name_status<>?",
                               (st, r["id"], st)).rowcount
-            if st == "unknown" and r["kind"].endswith("_variant"):
+            if st == "unknown":
                 prefix = r["kind"].split("_")[0]
-                model = conn.execute(f"SELECT e.canonical_name FROM {prefix}_variant v JOIN entity e "
-                                     f"ON e.id = v.model_id WHERE v.entity_id=?", (r["id"],)).fetchone()
+                fields = {row[0]: json.loads(row[1]) for row in conn.execute(
+                    "SELECT field, value_json FROM claim WHERE entity_id=? AND field IN ('manufacturer','class') "
+                    "AND status <> 'obsolete'", (r["id"],))}
                 label = "Véhicule" if prefix == "vehicle" else "Arme"
-                conn.execute("UPDATE entity SET neutral_alias=? WHERE id=? AND neutral_alias IS NULL",
-                             (f"{label} unique — {model[0] if model else '?'}", r["id"]))
+                desc = " · ".join(str(x) for x in (fields.get("class"), fields.get("manufacturer")) if x)
+                # alias neutre : jamais dérivé du nom (qui peut contenir un personnage)
+                conn.execute("UPDATE entity SET neutral_alias=? WHERE id=?", (f"{label} unique" + (f" — {desc}" if desc else ""), r["id"]))
             media_st = "evaluated" if st == "safe" else "unknown"
             conn.execute("UPDATE media SET spoiler_status=? WHERE entity_id=?", (media_st, r["id"]))
     return n

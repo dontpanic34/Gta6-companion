@@ -105,6 +105,10 @@ export async function offlineGet(path: string): Promise<unknown> {
       if (q.get("q") && !x.name.toLowerCase().includes(q.get("q")!.toLowerCase())) return false;
       if (q.get("wclass") && x.class !== q.get("wclass")) return false;
       if (q.get("free_only") && !x.free_hint) return false;
+      for (const [param, k] of [["min_damage", "damage"], ["min_accuracy", "accuracy"], ["min_range", "range"], ["min_handling", "weapon_handling"]]) {
+        const m = q.get(param); if (m && !(x.stats[k] >= +m)) return false;
+      }
+      if (q.get("max_price") && x.price != null && x.price > +q.get("max_price")!) return false;
       return true;
     });
     if (w) list = list.map((x: any) => ({ ...x, score: score(x.stats, w) })).sort((a: any, b: any) => (b.score?.value ?? -1) - (a.score?.value ?? -1));

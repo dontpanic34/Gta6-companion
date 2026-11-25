@@ -32,7 +32,7 @@ export interface FieldValue {
 export interface VehicleDetail {
   id: string; name: string; kind: string; variant_type?: string; missable_warning: boolean;
   fields: Record<string, FieldValue>; media: string[];
-  siblings?: { id: string; name: string; variant_type: string }[];
+  siblings?: { id: string; name: string; variant_type: string; image?: string | null }[];
   kits?: { id: string; name: string }[]; mods?: { id: string; name: string; category: string }[];
   hidden_fields: number;
 }

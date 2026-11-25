@@ -54,7 +54,7 @@ def test_import_variants_history_and_spoilers():
     assert ("vehicle:futo:std", "how_to_unlock") in rep.quarantined
     names = {v["name"] for v in catalog.vehicles(c)}
     # « Raul's Futo » : visible, mais sous un nom neutre (le vrai révèle un personnage)
-    assert names == {"Karin Futo", "Bravado Gauntlet", "Véhicule unique — Karin Futo"}
+    assert names == {"Karin Futo", "Bravado Gauntlet", "Véhicule unique — Sports"}
     assert "Raul" not in str(catalog.vehicles(c))
     d = catalog.vehicle_detail(c, "vehicle:futo:std")
     assert "how_to_unlock" not in d["fields"] and d["hidden_fields"] == 1
@@ -79,7 +79,7 @@ def test_weighted_ranking_and_filters():
     importer.import_items(c, items())
     w = catalog.get_pref(c, "vehicle_weights")
     ranked = catalog.vehicles(c, weights=w, exclude_classes=["Muscle"])
-    assert [v["name"] for v in ranked] == ["Karin Futo", "Véhicule unique — Karin Futo"]
+    assert [v["name"] for v in ranked] == ["Karin Futo", "Véhicule unique — Sports"]
     assert ranked[0]["score"]["coverage"] < 1  # stats manquantes signalées, pas inventées
     assert catalog.vehicles(c, min_stats={"handling_road": 7}) [0]["name"] == "Karin Futo"
     assert catalog.vehicles(c, max_price=5000) == []
@@ -97,7 +97,7 @@ def test_api_end_to_end(tmp_path, monkeypatch):
     r = cl.get("/api/vehicles", params={"use_profile": True}, headers=h).json()
     assert [v["name"] for v in r][0] == "Karin Futo" and "Bravado Gauntlet" not in str(r)
     raul = cl.get("/api/vehicles/vehicle:futo:raul-futo", headers=h).json()
-    assert raul["name"] == "Véhicule unique — Karin Futo" and raul["media"] == []
+    assert raul["name"] == "Véhicule unique — Sports" and raul["media"] == []
     assert cl.put("/api/status/vehicle:futo:std", json={"status": "owned"}, headers=h).status_code == 200
     assert cl.get("/api/garage", headers=h).json()[0]["status"] == "owned"
     api._local.conn = None

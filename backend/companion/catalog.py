@@ -120,7 +120,8 @@ def vehicle_detail(conn, entity_id: str) -> dict | None:
     if vv:
         base["variant_type"] = vv["variant_type"]
         base["siblings"] = [dict(r) for r in conn.execute("""
-            SELECT v.id, v.display_name AS name, vv.variant_type FROM vehicle_variant vv
+            SELECT v.id, v.display_name AS name, vv.variant_type,
+                   (SELECT url FROM visible_media m WHERE m.entity_id = v.id LIMIT 1) AS image FROM vehicle_variant vv
             JOIN visible_entity v ON v.id = vv.entity_id
             WHERE vv.model_id = ? AND vv.entity_id <> ? ORDER BY v.display_name""", (vv["model_id"], entity_id))]
         base["kits"] = [dict(r) for r in conn.execute("""
@@ -188,7 +189,16 @@ def weapons(conn: sqlite3.Connection, *, classes: list[str] | None = None,
 
 
 def item_detail(conn, entity_id: str) -> dict | None:
-    """Fiche véhicule OU arme, avec variantes sœurs, kits et options."""
+    """Fiche véhicule OU arme, avec variantes sœurs, kits, options et lieux sur la carte."""
+    d = _item_detail(conn, entity_id)
+    if d:
+        d["map_points"] = map_points(conn, entity_id, d["name"]) if not d.get("name_hidden") else []
+        st = conn.execute("SELECT status FROM user_item_status WHERE entity_id=?", (entity_id,)).fetchone()
+        d["status"] = st[0] if st else None
+    return d
+
+
+def _item_detail(conn, entity_id: str) -> dict | None:
     if entity_id.startswith("weapon:"):
         from . import spoiler
         base = spoiler.get_entity(conn, entity_id)
@@ -200,7 +210,8 @@ def item_detail(conn, entity_id: str) -> dict | None:
         if wv:
             base["variant_type"] = wv["variant_type"]
             base["siblings"] = [dict(r) for r in conn.execute("""
-                SELECT v.id, v.display_name AS name, wv.variant_type FROM weapon_variant wv
+                SELECT v.id, v.display_name AS name, wv.variant_type,
+                       (SELECT url FROM visible_media m WHERE m.entity_id = v.id LIMIT 1) AS image FROM weapon_variant wv
                 JOIN visible_entity v ON v.id = wv.entity_id
                 WHERE wv.model_id = ? AND wv.entity_id <> ? ORDER BY v.display_name""", (wv["model_id"], entity_id))]
             base["mods"] = [dict(r) for r in conn.execute("""
@@ -213,3 +224,16 @@ def item_detail(conn, entity_id: str) -> dict | None:
             (entity_id,)).fetchone()[0]
         return base
     return vehicle_detail(conn, entity_id)
+
+
+def map_points(conn, item_id: str, name: str) -> list[dict]:
+    """Lieux de la carte (véhicule d'exception, arme cachée…) qui correspondent à cette fiche."""
+    from .assistant import best_match
+    kind = "véhicule" if item_id.startswith("vehicle:") else "arme"
+    out = []
+    for r in conn.execute("""SELECT v.id, v.display_name AS name, v.category, p.x, p.y, p.precision
+                             FROM visible_entity v JOIN visible_location p ON p.entity_id = v.id
+                             WHERE lower(v.category) LIKE ?""", (f"%{kind}%",)):
+        if best_match(r["name"], [{"name": name}], strict=True):
+            out.append(dict(r))
+    return out

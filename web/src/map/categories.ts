@@ -95,3 +95,19 @@ export function markerHtml(st: CatStyle, size: number, done: boolean, label?: st
     `<svg width="${g}" height="${g}" viewBox="0 0 24 24" fill="none" stroke="#0d0b14" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${iconInner(st.icon)}</svg></div>` +
     (label ? `<span class="mk-label">${esc(label)}</span>` : "") + `</div>`;
 }
+
+/** Pictos par classe de véhicule / d'arme (catalogue). */
+const CLASS_STYLE: [RegExp, CatStyle][] = [
+  [/super/i, C("Gauge", "#ff4f8b")], [/sport/i, C("CarFront", "#f97316")], [/muscle/i, C("Flame", "#ef4444")],
+  [/off-?road|tout/i, C("Mountain", "#a3e635")], [/suv|pickup/i, C("Truck", "#84cc16")], [/sedan|berline/i, C("Car", "#60a5fa")],
+  [/coupe|compact/i, C("Car", "#38bdf8")], [/moto|motorcycle/i, C("Bike", "#facc15")], [/cycle|vélo/i, C("Bike", "#a3e635")],
+  [/boat|bateau/i, C("Sailboat", "#38bdf8")], [/plane|avion|aircraft/i, C("Plane", "#c084fc")], [/heli/i, C("Plane", "#c084fc")],
+  [/van|commercial|industrial/i, C("Truck", "#94a3b8")], [/emergency|police|urgence/i, C("Siren", "#3b82f6")],
+  [/handgun|pistol/i, C("Crosshair", "#f97316")], [/smg/i, C("Crosshair", "#fb923c")], [/assault|tactical/i, C("Crosshair", "#ef4444")],
+  [/sniper/i, C("Target", "#c084fc")], [/shotgun/i, C("Crosshair", "#facc15")], [/lmg|heavy|launcher/i, C("Bomb", "#ef4444")],
+  [/melee|mêlée/i, C("Sword", "#94a3b8")], [/throw/i, C("Bomb", "#a3e635")],
+];
+export function classStyle(cls: string | null): CatStyle {
+  const hit = CLASS_STYLE.find(([rx]) => rx.test(cls ?? ""));
+  return hit ? hit[1] : C("CircleDot", "#cbd5e1");
+}

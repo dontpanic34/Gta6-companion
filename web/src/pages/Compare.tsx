@@ -1,9 +1,12 @@
 import { ChevronLeft, Circle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { api, STAT_LABELS, Stats, VehicleDetail } from "../api";
+import { api, STAT_LABELS, VehicleDetail, WEAPON_STAT_LABELS } from "../api";
+type Stats = Record<string, number | null>;
+// Module-level mutable: set per comparison (vehicles vs weapons)
+let LABELS: Record<string, string> = STAT_LABELS;
 
-const KEYS = Object.keys(STAT_LABELS) as (keyof Stats)[];
+let KEYS: string[] = Object.keys(STAT_LABELS);
 const COLORS = ["#ff4f8b", "#38d6c4", "#ffa24c", "#a78bfa"];
 
 function Radar({ series }: { series: { name: string; stats: Stats }[] }) {
@@ -19,7 +22,7 @@ function Radar({ series }: { series: { name: string; stats: Stats }[] }) {
       ))}
       {KEYS.map((k, i) => {
         const [x, y] = pt(i, 11.8);
-        return <text key={k} x={x} y={y} fill="var(--muted)" fontSize="10" textAnchor="middle" dominantBaseline="middle">{STAT_LABELS[k]}</text>;
+        return <text key={k} x={x} y={y} fill="var(--muted)" fontSize="10" textAnchor="middle" dominantBaseline="middle">{LABELS[k]}</text>;
       })}
       {series.map((s, si) => (
         <polygon key={s.name} points={KEYS.map((k, i) => pt(i, s.stats[k] ?? 0).join(",")).join(" ")}
@@ -32,12 +35,16 @@ function Radar({ series }: { series: { name: string; stats: Stats }[] }) {
 export default function Compare() {
   const [sp] = useSearchParams();
   const ids = (sp.get("ids") ?? "").split(",").filter(Boolean);
+  const weaponMode = ids[0]?.startsWith("weapon:");
+  LABELS = weaponMode ? WEAPON_STAT_LABELS : STAT_LABELS;
+  KEYS = Object.keys(LABELS);
   const [items, setItems] = useState<VehicleDetail[]>([]);
   const [weights, setWeights] = useState<Record<string, number>>({});
 
   useEffect(() => {
     Promise.all(ids.map((i) => api.vehicle(i))).then(setItems).catch(() => setItems([]));
-    api.pref<Record<string, number>>("vehicle_weights").then(setWeights).catch(() => {});
+    api.pref<Record<string, number> | null>(weaponMode ? "weapon_weights" : "vehicle_weights")
+      .then((w) => setWeights(w ?? (weaponMode ? { damage: 0.4, accuracy: 0.25, range: 0.2, weapon_handling: 0.15 } : {}))).catch(() => {});
   }, [sp]);
 
   const series = items.map((d) => ({
@@ -53,7 +60,7 @@ export default function Compare() {
 
   return (
     <div className="page">
-      <Link to="/vehicules" className="muted small"><ChevronLeft size={16} style={{ verticalAlign: "-3px" }} />Véhicules</Link>
+      <Link to={weaponMode ? "/armes" : "/vehicules"} className="muted small"><ChevronLeft size={16} style={{ verticalAlign: "-3px" }} />Véhicules</Link>
       <h1>Comparateur</h1>
       <div className="card">
         <Radar series={series} />
@@ -65,12 +72,12 @@ export default function Compare() {
       <h2>Pondération</h2>
       <div className="card filters">
         {KEYS.map((k) => (
-          <label className="slider" key={k}><span>{STAT_LABELS[k]}</span>
+          <label className="slider" key={k}><span>{LABELS[k]}</span>
             <input type="range" min={0} max={1} step={0.05} value={weights[k] ?? 0}
               onChange={(e) => setWeights({ ...weights, [k]: +e.target.value })} />
             <span>{Math.round((weights[k] ?? 0) * 100)}</span></label>
         ))}
-        <button className="btn ghost" onClick={() => api.setPref("vehicle_weights", weights)}>Enregistrer comme mon profil</button>
+        <button className="btn ghost" onClick={() => api.setPref(weaponMode ? "weapon_weights" : "vehicle_weights", weights)}>Enregistrer comme mon profil</button>
       </div>
 
       <h2>Classement</h2>
@@ -79,7 +86,7 @@ export default function Compare() {
         <tr><td>Score pondéré</td>{ranked.map((s) => <td key={s.id}><span className="badge score">{score(s.stats) ?? "—"}</span></td>)}</tr>
         {KEYS.map((k) => {
           const best = Math.max(...ranked.map((s) => s.stats[k] ?? -1));
-          return <tr key={k}><td>{STAT_LABELS[k]}</td>{ranked.map((s) =>
+          return <tr key={k}><td>{LABELS[k]}</td>{ranked.map((s) =>
             <td key={s.id} style={{ color: s.stats[k] === best && best >= 0 ? "var(--accent)" : undefined }}>{s.stats[k] ?? "—"}</td>)}</tr>;
         })}
       </tbody></table>
