@@ -73,3 +73,48 @@ table.kv td:first-child { color: var(--muted); width: 40%; }
 .check { position: absolute; top: 22px; right: 22px; width: 28px; height: 28px; border-radius: 50%;
   border: 2px solid #fff; background: rgba(0,0,0,.45); display: grid; place-items: center; color: #fff; font-size: 14px; cursor: pointer; }
 .check.on { background: var(--accent); border-color: var(--accent); }
+
+/* ---------- Carte plein écran ---------- */
+.mapwrap { position: fixed; inset: 0 0 calc(72px + env(safe-area-inset-bottom)) 0; }
+.mapcanvas { position: absolute; inset: 0; background: #2e8fb1; }
+.leaflet-container { background: #2e8fb1; font: inherit; }
+.leaflet-control-attribution { background: rgba(13,11,20,.6) !important; color: #bbb !important; font-size: 10px; }
+.leaflet-control-attribution a { color: #ddd !important; }
+.map-top { position: absolute; top: calc(10px + env(safe-area-inset-top)); left: 0; right: 0; z-index: 500; display: grid; gap: 8px; }
+.searchbar { margin: 0 12px; display: flex; align-items: center; gap: 8px; padding: 0 14px; height: 48px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 24px; box-shadow: 0 6px 20px rgba(0,0,0,.35); }
+.searchbar input { flex: 1; border: 0; background: transparent; outline: none; font-size: 15px; min-width: 0; }
+.chiprow { display: flex; gap: 8px; overflow-x: auto; padding: 0 12px 4px; scrollbar-width: none; }
+.chiprow::-webkit-scrollbar { display: none; }
+.chiprow .chip { background: var(--surface); box-shadow: 0 3px 10px rgba(0,0,0,.3); height: 36px; display: flex; align-items: center; gap: 4px; }
+.iconbtn { background: none; border: 0; color: var(--muted); font-size: 16px; width: 36px; height: 36px; cursor: pointer; }
+.toast { position: absolute; z-index: 600; top: calc(120px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: 999px; padding: 8px 16px; font-size: 13px; white-space: nowrap; }
+.fabs { position: absolute; right: 14px; bottom: 16px; z-index: 500; display: grid; gap: 12px; }
+.fab { width: 56px; height: 56px; border-radius: 18px; border: 1px solid var(--line); background: var(--surface);
+  color: var(--text); font-size: 22px; box-shadow: 0 6px 18px rgba(0,0,0,.4); position: relative; cursor: pointer; }
+.fab.on { color: var(--accent); border-color: var(--accent); }
+.fab i { position: absolute; top: -6px; right: -6px; font-style: normal; font-size: 11px; background: var(--accent); color: #fff;
+  border-radius: 999px; min-width: 20px; height: 20px; display: grid; place-items: center; }
+.pickcard { position: absolute; left: 12px; right: 84px; bottom: 16px; z-index: 500; background: var(--surface);
+  border: 1px solid var(--line); border-radius: 18px; padding: 14px; box-shadow: 0 8px 24px rgba(0,0,0,.45); }
+.dot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+.ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.grow { flex: 1; text-align: center; }
+.btn.on { border-color: var(--accent); color: var(--accent); }
+.scrim { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 900; }
+.sheet { z-index: 1000; padding-bottom: calc(24px + env(safe-area-inset-bottom)); animation: up .18s ease-out; }
+@keyframes up { from { transform: translateY(30px); opacity: .5 } to { transform: none; opacity: 1 } }
+.grabber { width: 40px; height: 4px; border-radius: 2px; background: var(--line); margin: -4px auto 12px; }
+.switch { display: flex; align-items: center; gap: 10px; padding: 14px 0; font-size: 15px; }
+.switch input { width: 22px; height: 22px; accent-color: var(--accent); }
+.famgrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 4px 0 10px; }
+.famtile { display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 8px; text-align: left;
+  padding: 12px; min-height: 52px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface-2); cursor: pointer; }
+.famtile.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface-2)); }
+.listrow { display: flex; align-items: center; gap: 10px; padding: 12px 4px; border-bottom: 1px solid var(--line); min-height: 48px; }
+.listrow .grow { text-align: left; }
+.mapwrap .sheet { position: absolute; bottom: 0; max-height: 82%; padding-bottom: 16px; }
+.mapwrap .scrim { position: absolute; }
+.sheet-footer { position: sticky; bottom: -16px; margin: 8px -16px -16px; padding: 12px 16px 16px; background: var(--surface); border-top: 1px solid var(--line); }
+.nav { height: calc(72px + env(safe-area-inset-bottom)); box-sizing: border-box; }

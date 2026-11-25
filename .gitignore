@@ -8,3 +8,5 @@ node_modules/
 dist/
 backend/data/
 *.tsbuildinfo
+.cache/
+web/public/tiles/

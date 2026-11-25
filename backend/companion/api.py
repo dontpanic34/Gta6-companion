@@ -223,6 +223,10 @@ def set_status(entity_id: str, s: StatusIn):
     return {"id": entity_id, "status": s.status}
 
 
+_tiles = Path(DB_PATH).resolve().parent / "tiles"
+if _tiles.exists():  # zoom 6 du fond de carte (les zooms 0-5 sont embarqués dans l'APK)
+    app.mount("/tiles-hd", StaticFiles(directory=_tiles), name="tiles")
+
 _web = Path(__file__).resolve().parents[2] / "web" / "dist"
 if _web.exists():
     app.mount("/", StaticFiles(directory=_web, html=True), name="web")

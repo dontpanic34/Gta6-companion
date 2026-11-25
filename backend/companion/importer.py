@@ -207,6 +207,8 @@ def reclassify_catalog_names(conn: sqlite3.Connection) -> int:
     with conn:
         for r in conn.execute("SELECT id, kind, canonical_name FROM entity WHERE kind IN "
                               "('vehicle_model','vehicle_variant','weapon_model','weapon_variant')").fetchall():
+            conn.execute("UPDATE entity SET spoiler_status=? WHERE id=?",
+                         (classify.entity_spoiler_status(r["kind"], r["canonical_name"]), r["id"]))
             st = classify.name_status(r["kind"], r["canonical_name"])
             n += conn.execute("UPDATE entity SET name_status=? WHERE id=? AND name_status<>?",
                               (st, r["id"], st)).rowcount
