@@ -1,3 +1,4 @@
+import ViceHero from "../components/ViceHero";
 import { MapPinned, MessageCircle, Mountain, Settings, ShieldCheck, Star } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -14,8 +15,7 @@ export default function Home() {
 
   return (
     <div className="page">
-      <div className="row"><h1>Leonida <em>Companion</em></h1><span className="spacer" />
-        <Link to="/reglages" className="chip"><Settings size={15} /> Réglages</Link></div>
+      <ViceHero subtitle="LEONIDA · COMPAGNON" />
       {err && <p className="notice">{err}</p>}
       <div className="card">
         <div className="muted small">Ma progression</div>

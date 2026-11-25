@@ -1,0 +1,48 @@
+/* ---------- Thème « Vice City » : coucher de soleil néon sur nuit violette ---------- */
+:root {
+  --bg: #140a24; --surface: #1f1236; --surface-2: #2a1a47; --line: #3b2763;
+  --text: #fbf3ff; --muted: #a998c8;
+  --accent: #ff3d8b; --accent-2: #ff9a3d; --teal: #2ee6d6; --gold: #ffd166; --ok: #4ade80; --warn: #ffd166;
+  --sunset: linear-gradient(180deg, #ffd166 0%, #ff9a3d 30%, #ff3d8b 62%, #8b3dff 100%);
+  --neon: linear-gradient(90deg, #ff3d8b, #ff9a3d);
+  --display: "Bebas Neue", "Inter", system-ui, sans-serif;
+}
+html, body { font-family: "Inter", system-ui, sans-serif;
+  background: radial-gradient(120% 60% at 50% -10%, #3a1460 0%, var(--bg) 55%) fixed, var(--bg); }
+
+/* Titres : condensés, capitales, dégradé néon */
+.page h1, .cat-head h1, .d-title, .chat h1, h1 { font-family: var(--display); font-weight: 400; letter-spacing: .03em; text-transform: uppercase; }
+.page h1, .cat-head h1, .chat h1 { font-size: 40px; line-height: 1; background: var(--neon); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.d-title { font-size: 34px; line-height: .95; }
+.ps-title { font-family: var(--display); font-weight: 400; font-size: 30px; line-height: .95; letter-spacing: .03em; text-transform: uppercase; }
+h2, .sheet h2 { font-family: var(--display); font-weight: 400; font-size: 26px; letter-spacing: .04em; text-transform: uppercase; }
+.placesheet h4, .d-sec h4, .sheet-h, .counter span, .tag { font-family: var(--display); font-weight: 400; font-size: 15px; letter-spacing: .08em; }
+.counter { font-family: var(--display); font-weight: 400; font-size: 19px; letter-spacing: .04em; border-color: #ff3d8b55; box-shadow: 0 0 18px #ff3d8b33; }
+
+/* Barre de navigation : néon */
+.nav { background: linear-gradient(180deg, #1a0d2ecc, #120821f2); border-top: 1px solid #ff3d8b40; box-shadow: 0 -8px 24px #ff3d8b14; }
+.nav a { font-family: var(--display); font-size: 14px; letter-spacing: .06em; }
+.nav a.active { color: var(--accent); text-shadow: 0 0 10px #ff3d8b99; }
+.nav a.active svg { filter: drop-shadow(0 0 6px #ff3d8bcc); }
+
+/* Boutons et puces */
+.btn { background: var(--neon); box-shadow: 0 4px 16px #ff3d8b44; font-family: var(--display); font-weight: 400; font-size: 18px; letter-spacing: .05em; }
+.btn.ghost { background: var(--surface-2); box-shadow: none; font-family: "Inter", sans-serif; font-size: 14px; font-weight: 600; letter-spacing: 0; }
+.chip.on { border-color: var(--accent); color: #fff; background: linear-gradient(90deg, #ff3d8b55, #ff9a3d33); box-shadow: 0 0 12px #ff3d8b44; }
+.act { font-family: var(--display); font-weight: 400; font-size: 15px; letter-spacing: .05em; }
+.act.on, .donebtn.on { background: var(--teal); color: #140a24; border-color: var(--teal); }
+.fab.on, .sqbtn.on { color: var(--accent); border-color: var(--accent); box-shadow: 0 0 16px #ff3d8b55; }
+.badge.score { background: var(--neon); color: #fff; }
+.bar > i { background: linear-gradient(90deg, var(--teal), var(--accent)); }
+.card, .vrow, .searchbar, .placesheet, .sheet { border-color: var(--line); }
+.vrow { background: linear-gradient(135deg, #24143f, #1c1031); }
+
+/* ---------- En-tête « coucher de soleil » de l'accueil ---------- */
+.vc-hero { position: relative; margin: calc(-16px - var(--safe-top)) -16px 16px; height: calc(250px + var(--safe-top)); overflow: hidden;
+  background: linear-gradient(180deg, #2a0e4d 0%, #7a1e78 38%, #ff3d8b 64%, #ff9a3d 82%, #ffd166 100%); }
+.vc-hero svg.scene { position: absolute; inset: 0; width: 100%; height: 100%; }
+.vc-hero .vc-title { position: absolute; left: 18px; bottom: 16px; }
+.vc-hero .vc-title b { display: block; font-family: var(--display); font-weight: 400; font-size: 76px; line-height: .85; letter-spacing: .02em; color: #fff;
+  text-shadow: 3px 3px 0 #ff3d8b, 6px 6px 0 #140a24; }
+.vc-hero .vc-title span { font-family: var(--display); font-size: 20px; letter-spacing: .25em; color: #140a24; background: var(--gold); padding: 2px 8px; }
+.vc-hero .vc-settings { position: absolute; right: 14px; top: calc(12px + var(--safe-top)); background: #140a24aa; border-color: #ffffff33; color: #fff; }

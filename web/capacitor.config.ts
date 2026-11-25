@@ -4,7 +4,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 // Remplacez l'URL par l'adresse Tailscale du PC (ex. http://100.x.y.z:8765).
 const config: CapacitorConfig = {
   appId: "fr.perso.gta6companion",
-  appName: "Leonida Companion",
+  appName: "GTA",
   webDir: "dist",
   server: { androidScheme: "http", cleartext: true },
 };
