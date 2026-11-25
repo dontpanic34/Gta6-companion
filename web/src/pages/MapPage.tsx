@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import L from "leaflet";
 import { Check, LocateFixed, Search, SlidersHorizontal, Star, X } from "lucide-react";
 import "leaflet/dist/leaflet.css";
@@ -39,6 +39,7 @@ export default function MapPage() {
   const [err, setErr] = useState("");
   const [hint, setHint] = useState("");
   const [zoom, setZoom] = useState(2);
+  const [sp] = useSearchParams();
 
   useEffect(() => { try { localStorage.setItem(STORE, JSON.stringify(st)); } catch { /* ignore */ } }, [st]);
   useEffect(() => { api.places(new URLSearchParams()).then(setPlaces).catch((e) => setErr(e.message)); }, []);
@@ -51,7 +52,11 @@ export default function MapPage() {
       maxBounds: TILE_BOUNDS.pad(0.1), maxBoundsViscosity: 0.8, preferCanvas: true, zoomSnap: 0.25,
     });
     createTileLayer(getBaseUrl()).addTo(m);
-    m.fitBounds(LEONIDA_BOUNDS);
+    const fx = sp.get("x"), fy = sp.get("y");
+    if (fx && fy) {  // ouverture depuis l'assistant : centrer sur la zone
+      m.setView(gameToLatLng(+fx, +fy), +(sp.get("z") ?? 5));
+      setSt((s) => ({ ...s, me: [+fx, +fy] }));
+    } else m.fitBounds(LEONIDA_BOUNDS);
     layer.current = L.layerGroup().addTo(m);
     meLayer.current = L.layerGroup().addTo(m);
     m.on("contextmenu", (e: L.LeafletMouseEvent) => {   // appui long = « Je suis ici »

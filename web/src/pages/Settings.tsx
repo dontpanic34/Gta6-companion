@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { api, getBaseUrl, getToken, Progress, setBaseUrl, setToken } from "../api";
+import { Gamepad2, RefreshCw } from "lucide-react";
+import { api, getBaseUrl, getToken, Progress, setBaseUrl, setToken, XboxSummary } from "../api";
 
 export default function Settings() {
   const [p, setP] = useState<Progress | null>(null);
@@ -8,7 +9,13 @@ export default function Settings() {
   const [saved, setSaved] = useState("");
   const [theme, setTheme] = useState(() => { try { return localStorage.getItem("theme") ?? "dark"; } catch { return "dark"; } });
 
-  useEffect(() => { api.progress().then(setP).catch(() => {}); }, []);
+  const [xb, setXb] = useState<XboxSummary | null>(null);
+  const [xbMsg, setXbMsg] = useState("");
+  useEffect(() => { api.progress().then(setP).catch(() => {}); api.xbox().then(setXb).catch(() => {}); }, []);
+  const syncXbox = () => { setXbMsg("Synchronisation…"); api.xboxSync().then((r) => {
+    if (r.ok === false) { setXbMsg(r.error ?? "Échec"); return; }
+    setXb(r); setXbMsg(`${r.new_unlocked ?? 0} nouveau(x) succès`); api.progress().then(setP).catch(() => {});
+  }).catch((e) => setXbMsg(e.message)); };
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     try { localStorage.setItem("theme", theme); } catch { /* ignore */ }
@@ -24,6 +31,15 @@ export default function Settings() {
             onChange={(e) => p && setP({ ...p, chapter: +e.target.value })} /><span /></label>
         <p className="small muted">Missions terminées, personnages rencontrés et régions découvertes seront sélectionnables dès que l'encyclopédie des missions sera importée.</p>
         <button className="btn" onClick={() => p && api.setProgress(p).then(() => setSaved("Progression enregistrée"))}>Enregistrer</button>
+      </div>
+      <h2>Xbox</h2>
+      <div className="card filters">
+        <div className="row"><Gamepad2 size={20} color="var(--accent)" />
+          <span>{xb ? `${xb.unlocked_count} / ${xb.total} succès débloqués` : "Non synchronisé"}</span><span className="spacer" />
+          <button className="btn ghost small" onClick={syncXbox}><RefreshCw size={15} /> Synchroniser</button></div>
+        {xbMsg && <p className="small muted" style={{ margin: 0 }}>{xbMsg}</p>}
+        {xb?.unlocked.slice(0, 5).map((a) => <div key={a.name} className="small">• {a.name}</div>)}
+        <p className="small muted" style={{ margin: 0 }}>Les succès non débloqués ne sont jamais nommés (anti-spoiler). Clé OpenXBL à placer sur le PC (XBL_API_KEY).</p>
       </div>
       <h2>Apparence</h2>
       <div className="row">

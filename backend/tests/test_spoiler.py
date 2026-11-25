@@ -155,7 +155,7 @@ def test_search_never_leaks_hidden_text(conn):
 
 
 def test_migrations_idempotent(conn):
-    assert db.migrate(conn) == db.migrate(conn) == 3
+    assert db.migrate(conn) == db.migrate(conn) == 4
 
 
 def test_unsafe_name_shows_alias_until_explicit_reveal(conn):

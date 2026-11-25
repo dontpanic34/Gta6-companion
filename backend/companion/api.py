@@ -189,6 +189,40 @@ def place_facets():
     }
 
 
+class ChatIn(BaseModel):
+    message: str
+    session: str = "default"
+    history: list[dict] = []
+
+
+_assistant = {}
+
+
+def assistant_for(c):
+    from . import assistant
+    key = id(c)
+    if key not in _assistant:
+        _assistant[key] = assistant.Assistant(c, Path(DB_PATH).resolve().parent / "gtadb-landmarks.json")
+    return _assistant[key]
+
+
+@app.post("/api/assistant", dependencies=[Depends(auth)])
+def chat(body: ChatIn):
+    return assistant_for(conn()).chat(body.session, body.message[:2000], body.history)
+
+
+@app.get("/api/xbox", dependencies=[Depends(auth)])
+def xbox_summary():
+    from . import xbox
+    return xbox.summary(conn())
+
+
+@app.post("/api/xbox/sync", dependencies=[Depends(auth)])
+def xbox_sync():
+    from . import xbox
+    return xbox.sync(conn())
+
+
 @app.get("/api/search", dependencies=[Depends(auth)])
 def search(q: str):
     return spoiler.search(conn(), q)

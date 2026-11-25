@@ -18,6 +18,12 @@ export const WEAPON_STAT_LABELS: Record<string, string> = {
   damage: "Dégâts", accuracy: "Précision", weapon_handling: "Maniabilité", range: "Portée",
 };
 
+export interface ChatCard { type: string; id: string; name: string; subtitle?: string; image?: string | null }
+export interface ChatAction { type: string; x?: number; y?: number; zoom?: number; params?: [string, string][]; ids?: string[] }
+export interface ChatReply { text: string; cards: ChatCard[]; actions: ChatAction[]; engine?: string }
+
+export interface XboxSummary { total: number; unlocked_count: number; locked_count: number; unlocked: { name: string; description: string; unlocked_at: string }[] }
+
 export interface FieldValue {
   value: unknown; kind: "official" | "community" | "subjective"; contradiction: boolean;
   sources: { source: string; url: string | null; value: unknown; status: string; observed_at: string }[];
@@ -93,6 +99,10 @@ export const api = {
   revealName: (id: string) => req<EntityFull>(`/api/entity/${encodeURIComponent(id)}/reveal-name?confirm=true`, { method: "POST" }),
   solution: (id: string) => req<EntityFull>(`/api/entity/${encodeURIComponent(id)}/solution?confirm=true`, { method: "POST" }),
   weapons: (params: URLSearchParams) => req<WeaponSummary[]>(`/api/weapons?${params}`),
+  chat: (message: string, history: { role: string; content: string }[]) =>
+    req<ChatReply>("/api/assistant", { method: "POST", body: JSON.stringify({ message, history, session: "phone" }) }),
+  xbox: () => req<XboxSummary>("/api/xbox"),
+  xboxSync: () => req<XboxSummary & { ok?: boolean; error?: string; new_unlocked?: number }>("/api/xbox/sync", { method: "POST" }),
   garage: () => req<{ id: string; name: string; status: string }[]>("/api/garage"),
   setStatus: (id: string, status: string) => req(`/api/status/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify({ status }) }),
 };
