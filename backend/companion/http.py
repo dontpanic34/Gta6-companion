@@ -14,7 +14,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 log = logging.getLogger(__name__)
-USER_AGENT = "GTA6CompanionPersonal/0.1 (usage personnel, non diffusé)"
+USER_AGENT = "GTA6CompanionPersonal/0.1 (personal use, not redistributed)"
 
 
 @dataclass

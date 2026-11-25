@@ -122,7 +122,7 @@ export const FIELD_LABELS: Record<string, string> = {
   price: "Prix", sell_price_stolen: "Revente (volé)", style: "Style", era: "Époque",
   security: "Sécurité", access: "Accès", tracker: "Traceur", can_register: "Immatriculable",
   standout_set: "Collection", specialist: "Spécialiste", body_condition: "État",
-  game_edition: "Édition", capacity: "Capacité", purchase_from: "Achat", moddable: "Personnalisable",
+  game_edition: "Édition", body_style: "Carrosserie", capacity: "Capacité", purchase_from: "Achat", moddable: "Personnalisable",
   ammo_upgrade: "Amélioration munitions", ...{ damage: "Dégâts", accuracy: "Précision", weapon_handling: "Maniabilité", range: "Portée" }, how_to_unlock: "Déblocage", location_text: "Emplacement",
   ...STAT_LABELS,
 };

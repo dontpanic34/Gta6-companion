@@ -12,7 +12,10 @@ type Detail = Omit<VehicleDetail, "siblings"> & {
 };
 
 // champs déjà affichés ailleurs (en-tête, stats) ou purement techniques
-const HIDE = new Set(["class", "manufacturer", "price", "drivetrain", "seats", "base_model"]);
+const HIDE = new Set(["class", "manufacturer", "price", "drivetrain", "seats", "base_model", "variants_list"]);
+const TEXTS: [string, string][] = [["description", "Présentation"], ["design", "Design"], ["performance", "Conduite"],
+  ["modifications", "Personnalisations"], ["location_text", "Où le trouver"], ["how_to_unlock", "Obtention"]];
+const isText = (k: string) => TEXTS.some(([t]) => k === t || k === `${t}_en`);
 const ORDER = ["based_on", "how_to_unlock", "location_text", "game_edition", "purchase_from", "capacity", "gears", "weight_kg",
   "model_year", "style", "era", "security", "access", "tracker", "can_register", "sell_price_stolen", "standout_set", "moddable"];
 const GARAGE = [["owned", "Possédé", CircleCheck], ["wanted", "Recherché", SearchIcon], ["favorite", "Favori", Heart], ["lost", "Perdu", Ban]] as const;
@@ -40,7 +43,11 @@ export default function VehicleDetailPage() {
   const labels: Record<string, string> = isWeapon ? WEAPON_STAT_LABELS : STAT_LABELS;
   const f = (k: string) => d.fields[k]?.value as never;
   const st = classStyle(f("class"));
-  const keys = [...ORDER.filter((k) => d.fields[k]), ...Object.keys(d.fields).filter((k) => !ORDER.includes(k) && !HIDE.has(k) && !(k in labels))];
+  const keys = [...ORDER.filter((k) => d.fields[k] && !isText(k)), ...Object.keys(d.fields).filter((k) => !ORDER.includes(k) && !HIDE.has(k) && !(k in labels) && !isText(k))];
+  const texts = TEXTS.map(([k, l]) => {
+    const fr = d.fields[k]?.value, en = d.fields[`${k}_en`]?.value;
+    return fr ? { k, l, t: String(fr), en: false } : en ? { k, l, t: String(en), en: true } : null;
+  }).filter(Boolean) as { k: string; l: string; t: string; en: boolean }[];
   const statKind = d.fields[Object.keys(labels)[0]]?.kind;
   const setStatus = (s: string) => {
     const next = d.status === s ? "to_discover" : s;
@@ -111,6 +118,13 @@ export default function VehicleDetailPage() {
             </div>
           </section>
         )}
+
+        {texts.map((x) => (
+          <section className="d-sec" key={x.k}>
+            <h4>{x.l} {x.en && <span className="badge">EN</span>}</h4>
+            <p className="d-text">{x.t}</p>
+          </section>
+        ))}
 
         <section className="d-sec">
           <h4>Infos</h4>

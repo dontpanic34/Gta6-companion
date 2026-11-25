@@ -46,3 +46,4 @@ h2, .sheet h2 { font-family: var(--display); font-weight: 400; font-size: 26px; 
   text-shadow: 3px 3px 0 #ff3d8b, 6px 6px 0 #140a24; }
 .vc-hero .vc-title span { font-family: var(--display); font-size: 20px; letter-spacing: .25em; color: #140a24; background: var(--gold); padding: 2px 8px; }
 .vc-hero .vc-settings { position: absolute; right: 14px; top: calc(12px + var(--safe-top)); background: #140a24aa; border-color: #ffffff33; color: #fff; }
+.d-text { margin: 0; line-height: 1.55; color: #e9ddf7; white-space: pre-line; }

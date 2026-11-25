@@ -20,6 +20,7 @@ SOURCES = [
     ("gta6map", "GTA6Map.city", "https://gta6map.city", "full_sync", 70),
     ("gtacity", "GTACity", "https://gtacity.gg", "on_demand", 70),
     ("gtadb_landmarks", "GTA VI Landmarks (CC BY 4.0)", "https://map.gtadb.org", "full_sync", 75),
+    ("gtawiki", "GTA Wiki (CC BY-NC-SA 3.0)", "https://gta.wiki", "full_sync", 65),
     ("manual", "Saisie personnelle", None, "full_sync", 90),
 ]
 
@@ -314,3 +315,47 @@ def requarantine_sensitive(conn: sqlite3.Connection) -> int:
                 n += conn.execute("UPDATE entity SET spoiler_status='unknown', name_status='unknown' "
                                   "WHERE id=? AND spoiler_status='evaluated'", (eid,)).rowcount
     return n
+
+
+def import_wiki_items(conn: sqlite3.Connection, items: list) -> ImportReport:
+    """Rattache chaque fiche GTA Wiki à la fiche catalogue existante (même marque + nom),
+    sinon crée la fiche. Les textes (anglais) passent par la classification anti-spoiler."""
+    from .connectors.gtawiki import SOURCE_ID, wiki_class
+    from .assistant import best_match
+    report = ImportReport()
+    ensure_sources(conn)
+    for it in items:
+        prefix = it.kind
+        cands = [{"id": r[0], "name": r[1]} for r in conn.execute(
+            f"SELECT id, canonical_name FROM entity WHERE kind = '{prefix}_variant'")]
+        full = " ".join(x for x in (it.fields.get("manufacturer"), it.title) if x)
+        m = best_match(full, cands, strict=True) or best_match(it.title, cands, strict=True)
+        with conn:
+            if m:
+                vid = m["id"]
+            else:
+                pi = ParsedItem(slug=_slugify(it.title), url=it.url, kind=prefix, name=full,
+                                fields={"manufacturer": it.fields.get("manufacturer"), "class": wiki_class(it)},
+                                images=[it.image] if it.image else [])
+                pi.fields = {k: v for k, v in pi.fields.items() if v}
+                r = import_items(conn, [pi], SOURCE_ID)
+                report.created += r.created
+                vid = f"{prefix}:{pi.slug}:std"
+            for fname in ("manufacturer", "seats", "price", "body_style"):
+                if it.fields.get(fname) is not None:
+                    _record_claim(conn, vid, fname, it.fields[fname], SOURCE_ID, it.url, report)
+            cls = wiki_class(it)
+            if cls:
+                _record_claim(conn, vid, "class", cls, SOURCE_ID, it.url, report)
+            if it.variants:
+                _record_claim_raw(conn, vid, "variants_list", it.variants, SOURCE_ID, it.url, "evaluated", report)
+            for fname, txt in it.texts.items():
+                st = classify.field_spoiler_status("description", txt)
+                st = "evaluated" if (fname in ("design_en", "performance_en") and not classify.NARRATIVE_HINTS.search(txt)) else st
+                _record_claim_raw(conn, vid, fname, txt, SOURCE_ID, it.url, st, report)
+            if it.image and not conn.execute("SELECT 1 FROM media WHERE entity_id=? AND url=?", (vid, it.image)).fetchone():
+                ns = conn.execute("SELECT name_status FROM entity WHERE id=?", (vid,)).fetchone()
+                conn.execute("INSERT INTO media(entity_id,url,source_id,spoiler_status) VALUES (?,?,?,?)",
+                             (vid, it.image, SOURCE_ID, "evaluated" if ns and ns[0] == "safe" else "unknown"))
+    reclassify_catalog_names(conn)
+    return report

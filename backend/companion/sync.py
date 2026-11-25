@@ -13,7 +13,7 @@ import time
 from pathlib import Path
 
 from . import db, importer, spoiler
-from .connectors import gta6map, gtabase
+from .connectors import gta6map, gtabase, gtawiki
 from .http import PoliteClient
 
 log = logging.getLogger("sync")
@@ -96,11 +96,34 @@ def sync_gta6map(conn, client: PoliteClient, limit: int | None) -> dict:
             "quarantined": r1.quarantined + r2.quarantined}
 
 
+def sync_gtawiki(conn, client: PoliteClient, kinds: set[str], limit: int | None) -> dict:
+    targets = []
+    if "vehicle" in kinds:
+        targets += [("vehicle",) + t for t in gtawiki.vehicle_index(client.get(gtawiki.VEHICLE_INDEX, max_age=20 * 3600).text)]
+    if "weapon" in kinds:
+        targets += [("weapon",) + t for t in gtawiki.vehicle_index(client.get(gtawiki.WEAPON_INDEX, max_age=20 * 3600).text)]
+    if limit:
+        targets = targets[:limit]
+    items, errors, skipped = [], [], 0
+    for i, (kind, title, url, group) in enumerate(targets, 1):
+        try:
+            it = gtawiki.parse_item(title, url, kind, client.get(url, max_age=20 * 3600).text, group)
+            (items.append(it) if it else None); skipped += it is None
+        except Exception as e:
+            errors.append((url, str(e)))
+        if i % 25 == 0:
+            log.info("gtawiki %d/%d", i, len(targets))
+    rep = importer.import_wiki_items(conn, items)
+    spoiler.reindex(conn)
+    return {"source": "gtawiki", "checked": len(targets), "parsed": len(items), "not_gta6": skipped, "errors": errors,
+            "created": len(rep.created), "changed": rep.changed, "quarantined": rep.quarantined}
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--db", default="data/companion.db")
     ap.add_argument("--cache", default="data/http-cache")
-    ap.add_argument("--source", action="append", choices=["gtabase", "gta6map"])
+    ap.add_argument("--source", action="append", choices=["gtabase", "gta6map", "gtawiki"])
     ap.add_argument("--kind", action="append", choices=["vehicle", "weapon"])
     ap.add_argument("--limit", type=int)
     ap.add_argument("--interval", type=float, default=3.0)
@@ -111,10 +134,12 @@ def main() -> None:
     conn = db.connect(a.db)
     client = PoliteClient(a.cache, min_interval=a.interval)
     Path(a.report_dir).mkdir(parents=True, exist_ok=True)
-    for src in a.source or ["gtabase", "gta6map"]:
+    for src in a.source or ["gtabase", "gta6map", "gtawiki"]:
         try:  # une source en échec n'empêche pas les autres
-            report = (sync_gtabase(conn, client, set(a.kind or ["vehicle", "weapon"]), a.limit)
-                      if src == "gtabase" else sync_gta6map(conn, client, a.limit))
+            kinds = set(a.kind or ["vehicle", "weapon"])
+            report = (sync_gtabase(conn, client, kinds, a.limit) if src == "gtabase"
+                      else sync_gtawiki(conn, client, kinds, a.limit) if src == "gtawiki"
+                      else sync_gta6map(conn, client, a.limit))
         except Exception as e:
             log.exception("Source %s en échec", src)
             report = {"source": src, "fatal": str(e), "created": 0, "changed": [], "quarantined": [], "errors": []}
