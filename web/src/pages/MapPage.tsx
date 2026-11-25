@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import L from "leaflet";
-import { Check, LocateFixed, Search, SlidersHorizontal, Star, X } from "lucide-react";
+import { Check, ChevronRight, LocateFixed, Search, SlidersHorizontal, X } from "lucide-react";
 import "leaflet/dist/leaflet.css";
 import { api, entityLink, getBaseUrl, Place } from "../api";
 import { ALL_FAMILIES, Family, familyOf, iconInner, markerHtml } from "../map/categories";
@@ -24,6 +24,12 @@ function pinIcon(f: Family, size: number, done: boolean) {
   const k = `${f.id}${size}${done}`;
   if (!iconCache.has(k)) iconCache.set(k, L.divIcon({ html: markerHtml(f, size, done), className: "pinwrap", iconSize: [size, size], iconAnchor: [size / 2, size / 2] }));
   return iconCache.get(k)!;
+}
+
+function MiniStats({ s }: { s: Record<string, number | null> }) {
+  const lab: Record<string, string> = { speed: "Vit", acceleration: "Acc", handling_road: "Man", handling_offroad: "TT", damage: "Dég", accuracy: "Préc", range: "Port" };
+  const keys = Object.keys(lab).filter((k) => s[k] != null).slice(0, 4);
+  return <div className="ministats">{keys.map((k) => <span key={k}><b>{s[k]}</b> {lab[k]}</span>)}</div>;
 }
 
 export default function MapPage() {
@@ -111,6 +117,18 @@ export default function MapPage() {
     }
   }, [st.me]);
 
+  // Carte d'un lieu : on récupère la fiche (photo/stats, éventuellement lue à la demande par le PC)
+  useEffect(() => {
+    if (!picked || picked.linked_id) return;
+    const id = picked.id;
+    api.entity(id).then((e) => {
+      if (!e.linked) return;
+      const patch = { linked_id: e.linked.id, image: e.linked.image, linked_stats: e.linked.stats };
+      setPicked((x) => (x && x.id === id ? { ...x, ...patch } : x));
+      setPlaces((all) => all.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+    }).catch(() => {});
+  }, [picked?.id]);
+
   const nearby = useMemo(() => {
     if (!st.me) return [];
     const pos = st.me;
@@ -121,6 +139,11 @@ export default function MapPage() {
     return [...secrets, ...withPos];
   }, [st.me, visible]);
 
+  const famCount = useMemo(() => {
+    const n: Record<string, number> = {};
+    places.forEach((p) => { if (p.x != null) { const k = familyOf(p.category, p.id.startsWith("secret:")).id; n[k] = (n[k] ?? 0) + 1; } });
+    return n;
+  }, [places]);
   const toggleFam = (id: string) => setSt((s) => ({ ...s, families: s.families.includes(id) ? s.families.filter((x) => x !== id) : [...s.families, id] }));
   const mark = (p: Place, status: string) => api.setStatus(p.id, status).then(() => {
     setPlaces((all) => all.map((x) => (x.id === p.id ? { ...x, status } : x)));
@@ -145,9 +168,9 @@ export default function MapPage() {
           {q && <button className="iconbtn" onClick={() => setQ("")} aria-label="Effacer"><X size={18} /></button>}
         </div>
         <div className="chiprow">
-          {ALL_FAMILIES.map((f) => (
+          {ALL_FAMILIES.filter((f) => famCount[f.id]).map((f) => (
             <button key={f.id} className={`chip ${st.families.includes(f.id) ? "on" : ""}`} onClick={() => toggleFam(f.id)}>
-              <FamIcon f={f} /> {f.label}
+              <FamIcon f={f} /> {f.label} <span className="muted small">{famCount[f.id]}</span>
             </button>
           ))}
         </div>
@@ -161,23 +184,28 @@ export default function MapPage() {
         <button className={`fab ${st.me ? "on" : ""}`} onClick={aroundMe} aria-label="Autour de moi"><LocateFixed size={22} /></button>
       </div>
 
-      {picked && !sheet && (
-        <div className="pickcard">
-          <div className="row" style={{ flexWrap: "nowrap" }}>
-            <span className="famicon big" style={{ background: familyOf(picked.category, picked.id.startsWith("secret:")).color }}><FamIcon f={familyOf(picked.category, picked.id.startsWith("secret:"))} size={20} color="#fff" /></span>
-            <div style={{ minWidth: 0 }}>
-              <div className="title ellipsis">{picked.name}</div>
-              <div className="small muted ellipsis">{picked.category} · {picked.region}</div>
-            </div>
+      {picked && !sheet && (() => {
+        const f = familyOf(picked.category, picked.id.startsWith("secret:"));
+        const done = picked.status === "done";
+        return (
+          <div className="pickcard">
+            <Link to={entityLink(picked.linked_id ?? picked.id)} className="pick-main">
+              {picked.image
+                ? <img src={picked.image} alt="" referrerPolicy="no-referrer" />
+                : <span className="famicon big" style={{ background: f.color }}><FamIcon f={f} size={22} color="#fff" /></span>}
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div className="title ellipsis">{picked.name}</div>
+                <div className="small muted ellipsis">{picked.category}{picked.region ? ` · ${picked.region}` : ""}</div>
+                {picked.precision === "zone" && <div className="small" style={{ color: "var(--warn)" }}>Position approximative (zone)</div>}
+                {picked.linked_stats && <MiniStats s={picked.linked_stats} />}
+              </div>
+              <ChevronRight size={20} className="muted" />
+            </Link>
+            <button className={`donebtn ${done ? "on" : ""}`} aria-label="Fait"
+              onClick={() => mark(picked, done ? "to_discover" : "done")}><Check size={22} /></button>
           </div>
-          <div className="row" style={{ marginTop: 10, flexWrap: "nowrap" }}>
-            <button className={`btn ghost grow ${picked.status === "done" ? "on" : ""}`}
-              onClick={() => mark(picked, picked.status === "done" ? "to_discover" : "done")}><Check size={16} /> {picked.status === "done" ? "Fait" : "Marquer fait"}</button>
-            <button className={`btn ghost ${picked.status === "favorite" ? "on" : ""}`} onClick={() => mark(picked, "favorite")} aria-label="Favori"><Star size={18} fill={picked.status === "favorite" ? "currentColor" : "none"} /></button>
-            <Link className="btn grow" to={entityLink(picked.id)}>Fiche</Link>
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {sheet && <div className="scrim" onClick={() => setSheet(null)} />}
       {sheet === "filters" && (
@@ -188,8 +216,8 @@ export default function MapPage() {
           <label className="switch"><input type="checkbox" checked={st.hideDone}
             onChange={(e) => setSt((s) => ({ ...s, hideDone: e.target.checked }))} /> Masquer ce que j'ai déjà fait</label>
           <div className="famgrid">
-            {ALL_FAMILIES.map((f) => {
-              const n = places.filter((p) => familyOf(p.category, p.id.startsWith("secret:")).id === f.id).length;
+            {ALL_FAMILIES.filter((f) => famCount[f.id]).map((f) => {
+              const n = famCount[f.id];
               return (
                 <button key={f.id} className={`famtile ${st.families.includes(f.id) ? "on" : ""}`} onClick={() => toggleFam(f.id)}>
                   <span className="famicon" style={{ background: f.color }}><FamIcon f={f} size={18} color="#fff" /></span>

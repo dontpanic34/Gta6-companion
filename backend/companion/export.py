@@ -29,7 +29,7 @@ def build(db_path: str) -> dict:
         for v in catalog.vehicles(c) + catalog.weapons(c):
             details[v["id"]] = catalog.item_detail(c, v["id"])
         for p in places:
-            details[p["id"]] = spoiler.get_entity(c, p["id"])
+            details[p["id"]] = api.get_entity(p["id"])
         return {
             "version": 1,
             "vehicles": catalog.vehicles(c),

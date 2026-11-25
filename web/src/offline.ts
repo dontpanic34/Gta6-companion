@@ -56,7 +56,7 @@ export async function offlineGet(path: string): Promise<unknown> {
   if (detail) {
     const d = s.details[decodeURIComponent(detail[1])];
     if (!d) throw new Error("Introuvable ou masqué (anti-spoiler)");
-    return d;
+    return { ...d, status: st[d.id] ?? d.status ?? null };
   }
   if (p === "/api/vehicles") {
     const w = q.get("use_profile") ? ((prefs().vehicle_weights ?? s.prefs.vehicle_weights) as Record<string, number>) : null;

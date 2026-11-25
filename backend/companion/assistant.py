@@ -353,18 +353,33 @@ def fmt_stats(s: dict) -> str:
     return ", ".join(f"{lab[k]} {s[k]}" for k in lab if s.get(k) is not None) or "stats inconnues"
 
 
-def best_match(name: str, items: list[dict]) -> dict | None:
+def best_match(name: str, items: list[dict], strict: bool = False) -> dict | None:
+    """Rapproche un nom libre d'un élément du catalogue.
+    strict=True (liaison automatique lieu -> fiche) : tous les mots du nom du lieu doivent
+    être présents ET le nom du catalogue ne doit pas avoir de mot distinctif en plus."""
     n = gazetteer.norm(name)
     if not n:
         return None
-    toks = n.split()
+    toks = [t for t in n.split() if t not in STOP]
     scored = []
     for it in items:
         cand = gazetteer.norm(it["name"])
         if cand == n:
             return it
-        hit = sum(1 for t in toks if t in cand.split())
-        if hit:
-            scored.append((hit / len(toks), -len(cand), it))
+        ctoks = [t for t in cand.split() if t not in STOP]
+        hit = sum(1 for t in toks if t in ctoks)
+        if not hit:
+            continue
+        recall = hit / len(toks)
+        precision = hit / len(ctoks)
+        if strict and (recall < 1 or precision < 0.75):
+            continue
+        scored.append((recall, precision, it))
     scored.sort(key=lambda t: (t[0], t[1]), reverse=True)
-    return scored[0][2] if scored and scored[0][0] >= 0.5 else None
+    if not scored:
+        return None
+    best = scored[0]
+    return best[2] if (strict or best[0] >= 0.99 or (best[0] >= 0.5 and best[1] >= 0.5)) else None
+
+
+STOP = {"the", "de", "la", "le", "du", "des", "s", "95", "96", "85", "69"}

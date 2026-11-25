@@ -40,6 +40,7 @@ export interface VehicleDetail {
 export interface Place {
   id: string; kind: string; name: string; category: string | null; region: string | null;
   reliability: string; x: number | null; y: number | null; precision: string | null; status: string | null;
+  linked_id?: string; image?: string | null; linked_stats?: Record<string, number | null>;
 }
 
 export interface EntityFull {
@@ -47,6 +48,9 @@ export interface EntityFull {
   reliability: string; missable_warning: boolean; hints_remaining: number; media: string[];
   claims: { field: string; value_json: string; value_kind: string; source_id: string; source_url: string | null; status: string }[];
   content: { level: number; ord: number; body: string }[];
+  has_solution?: boolean; status?: string | null;
+  linked?: { id: string; image: string | null; stats: Record<string, number | null> };
+  location?: { x: number; y: number; precision: string } | null;
 }
 
 export interface Progress {

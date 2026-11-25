@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import catalog, db, spoiler
+from . import catalog, db, importer, spoiler
 
 DB_PATH = os.environ.get("COMPANION_DB", "data/companion.db")
 TOKEN = os.environ.get("COMPANION_TOKEN")
@@ -118,9 +118,24 @@ def get_vehicle(entity_id: str):
 
 @app.get("/api/entity/{entity_id:path}", dependencies=[Depends(auth)])
 def get_entity(entity_id: str):
-    d = spoiler.get_entity(conn(), entity_id)
+    c = conn()
+    d = spoiler.get_entity(c, entity_id)
     if not d:
         raise HTTPException(404, "Introuvable ou masqué par la protection anti-spoiler")
+    d["has_solution"] = bool(c.execute("SELECT 1 FROM activity_content WHERE entity_id=? AND level=3", (entity_id,)).fetchone())
+    st = c.execute("SELECT status FROM user_item_status WHERE entity_id=?", (entity_id,)).fetchone()
+    d["status"] = st[0] if st else None
+    row = {"name": d["name"], "category": d.get("category")}
+    link_catalog(c, [row])
+    cat = (d.get("category") or "").lower()
+    if not row.get("linked_id") and ("véhicule" in cat or "vehicle" in cat) and not d.get("name_hidden"):
+        # fiche absente : lecture à la demande d'UNE page GTACity (cache), puis nouvelle liaison
+        if importer.resolve_on_demand(c, d["name"]):
+            link_catalog(c, [row])
+    if row.get("linked_id"):
+        d["linked"] = {"id": row["linked_id"], "image": row["image"], "stats": row["linked_stats"]}
+    loc = c.execute("SELECT x, y, precision FROM visible_location WHERE entity_id=?", (entity_id,)).fetchone()
+    d["location"] = dict(loc) if loc else None
     return d
 
 
@@ -174,7 +189,28 @@ def places(region: str | None = None, category: str | None = None, kind: str | N
     if hide_done:
         sql += " AND COALESCE(u.status,'') NOT IN ('discovered','done')"
     sql += " ORDER BY v.category, v.display_name LIMIT ?"; args.append(limit)
-    return [dict(r) for r in c.execute(sql, args)]
+    rows = [dict(r) for r in c.execute(sql, args)]
+    link_catalog(c, rows)
+    return rows
+
+
+def link_catalog(c, rows: list[dict]) -> None:
+    """Relie un lieu « véhicule d'exception » / « arme » à sa fiche catalogue (photo, stats)."""
+    from .assistant import best_match
+    veh = wea = None
+    for r in rows:
+        cat = (r.get("category") or "").lower()
+        if "véhicule" in cat or "vehicle" in cat:
+            veh = veh if veh is not None else catalog.vehicles(c)
+            m = best_match(r["name"], veh, strict=True)
+        elif "arme" in cat or "weapon" in cat:
+            wea = wea if wea is not None else catalog.weapons(c)
+            m = best_match(r["name"], wea, strict=True)
+        else:
+            continue
+        if m:
+            r["linked_id"], r["image"] = m["id"], m["image"]
+            r["linked_stats"] = m["stats"]
 
 
 @app.get("/api/places/facets", dependencies=[Depends(auth)])

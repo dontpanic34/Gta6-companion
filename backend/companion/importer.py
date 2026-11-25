@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from pathlib import Path
 from dataclasses import dataclass, field
 
 from . import classify
@@ -82,6 +83,10 @@ def import_items(conn: sqlite3.Connection, items: list[ParsedItem], source_id: s
             model_slug = it.base_model_slug or it.slug
             model_id = f"{prefix}:{model_slug}"
             model_name = (base.name if base else it.fields.get("base_model")) if it.base_model_slug else it.name
+            if not model_name:  # modèle hors lot : nom existant en base, sinon déduit du slug
+                ex = conn.execute("SELECT canonical_name FROM entity WHERE id=?", (model_id,)).fetchone()
+                brand = it.fields.get("manufacturer")
+                model_name = ex[0] if ex else " ".join(filter(None, [brand, model_slug.replace("-", " ").title()]))
 
             _upsert_entity(conn, model_id, f"{prefix}_model", model_name, report)
             conn.execute(f"INSERT OR IGNORE INTO {prefix}_model(entity_id, manufacturer, class) VALUES (?,?,?)",
@@ -222,3 +227,54 @@ def reclassify_catalog_names(conn: sqlite3.Connection) -> int:
             media_st = "evaluated" if st == "safe" else "unknown"
             conn.execute("UPDATE media SET spoiler_status=? WHERE entity_id=?", (media_st, r["id"]))
     return n
+
+
+def geocode_unplaced(conn: sqlite3.Connection, zones: dict) -> int:
+    """Place approximativement les lieux/secrets sans coordonnées, d'après les noms
+    de lieux cités (texte « où le trouver », secteur, région). Précision = 'zone'."""
+    from . import gazetteer
+    placed = 0
+    rows = conn.execute("""
+        SELECT e.id, e.region_label,
+               (SELECT group_concat(body, ' ') FROM activity_content a WHERE a.entity_id = e.id AND a.level = 1) AS where_txt,
+               (SELECT json_extract(value_json,'$') FROM claim c WHERE c.entity_id = e.id AND c.field='subarea'
+                  AND c.status <> 'obsolete' LIMIT 1) AS subarea
+        FROM entity e LEFT JOIN location_point p ON p.entity_id = e.id
+        WHERE p.entity_id IS NULL AND e.kind IN ('location','secret_quest','random_encounter','dynamic_event',
+              'easter_egg','mystery','activity','collectible','property')""").fetchall()
+    with conn:
+        for r in rows:
+            z = None
+            for txt, prec in ((r["where_txt"], "zone"), (r["subarea"], "nearby"), (r["region_label"], "zone")):
+                if txt:
+                    z = gazetteer.find(zones, txt)
+                    if z:
+                        break
+            if z:
+                conn.execute("INSERT INTO location_point(entity_id,x,y,precision) VALUES (?,?,?,?)",
+                             (r["id"], z.x, z.y, prec if z.level != "region" else "zone"))
+                placed += 1
+    return placed
+
+
+def resolve_on_demand(conn: sqlite3.Connection, name: str, client=None) -> str | None:
+    """Fiche véhicule absente du catalogue : lit UNE page GTACity (à la demande, cache 30 j)
+    et l'importe. Retourne l'id de la variante ou None."""
+    from .connectors import gtacity
+    from .http import PoliteClient
+    client = client or PoliteClient(Path(conn.execute("PRAGMA database_list").fetchone()[2]).parent / "http-cache", min_interval=2)
+    try:
+        idx = gtacity.vehicle_index(client.get(gtacity.SITEMAP, max_age=24 * 3600).text)
+        url = gtacity.find_url(idx, name)
+        if not url:
+            return None
+        item = gtacity.parse_vehicle(url, client.get(url, max_age=30 * 24 * 3600).text)
+    except Exception:
+        return None
+    if not item:
+        return None
+    # pas de doublon de modèle : on rattache au modèle GTABase existant s'il a le même slug
+    import_items(conn, [item], "gtacity")
+    vid = f"vehicle:{item.base_model_slug or item.slug}:{'std' if not item.base_model_slug else item.slug}"
+    reclassify_catalog_names(conn)
+    return vid
