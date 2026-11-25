@@ -2,7 +2,9 @@
 /** Mode hors ligne : répond aux lectures depuis l'instantané embarqué (filtré au niveau
  *  anti-spoiler le plus strict) et garde les statuts personnels sur le téléphone. */
 type Locked = { hints: string[]; solution: string[]; video: unknown; name: string | null };
-type Snap = { locked?: Record<string, Locked>;
+type Story = { chapters: { num: number; title: string }[]; missions: { id: string; name: string; alias: string; kind: string; name_safe: boolean; chapter: number | null }[];
+  characters: { id: string; name: string; chapter: number | null }[] };
+type Snap = { locked?: Record<string, Locked>; story?: Story;
   vehicles: any[]; weapons: any[]; places: any[]; facets: unknown; details: Record<string, any>;
   prefs: Record<string, unknown>;
 };
@@ -36,6 +38,27 @@ function withReveals(d: any, lk: Locked | undefined) {
     ...(r.name && lk.name ? { name: lk.name, name_hidden: false } : {}) };
 }
 
+const PROG_KEY = "offline_progress_v1";
+type Prog = { chapter: number; completed_missions: string[]; met_characters: string[]; discovered_regions: string[] };
+const progress = (): Prog => { try { return { chapter: 0, completed_missions: [], met_characters: [], discovered_regions: [], ...JSON.parse(localStorage.getItem(PROG_KEY) ?? "{}") }; } catch { return { chapter: 0, completed_missions: [], met_characters: [], discovered_regions: [] }; } };
+const saveProgress = (p: Prog) => { try { localStorage.setItem(PROG_KEY, JSON.stringify(p)); } catch { /* ignore */ } };
+
+/** Options de progression filtrées par chapitre (même règle que la base sur le PC). */
+function options(s: Snap) {
+  const p = progress(), st = s.story ?? { chapters: [], missions: [], characters: [] };
+  const rv = reveals();
+  return {
+    chapter: p.chapter, max_chapter: Math.max(5, ...st.chapters.map((c) => c.num)),
+    chapters: st.chapters.map((c) => ({ num: c.num, title: c.num <= p.chapter ? c.title : null })),
+    missions: st.missions.filter((m) => m.chapter == null || m.chapter <= p.chapter)
+      .map((m) => ({ id: m.id, kind: m.kind, chapter: m.chapter, done: p.completed_missions.includes(m.id),
+        name: m.name_safe || rv[m.id]?.name ? m.name : m.alias }))
+      .sort((a, b) => (a.chapter ?? 99) - (b.chapter ?? 99)),
+    characters: st.characters.filter((c) => c.chapter == null || c.chapter <= p.chapter)
+      .map((c) => ({ id: c.id, name: c.name, met: p.met_characters.includes(c.id) })),
+  };
+}
+
 const PREF_KEY = "offline_prefs_v1";
 const prefs = (): Record<string, unknown> => { try { return JSON.parse(localStorage.getItem(PREF_KEY) ?? "{}"); } catch { return {}; } };
 export function saveLocalPref(k: string, v: unknown) {
@@ -61,7 +84,8 @@ export async function offlineGet(path: string): Promise<unknown> {
   const withStatus = <T extends { id: string }>(x: T) => ({ ...x, status: st[x.id] ?? (x as any).status ?? null });
 
   if (p === "/api/health") return { ok: true, offline: true };
-  if (p === "/api/progress") return { chapter: 0, completed_missions: [], met_characters: [], discovered_regions: [] };
+  if (p === "/api/progress") return progress();
+  if (p === "/api/progress/options") return options(s);
   if (p === "/api/places/facets") return s.facets;
   if (p === "/api/places") return s.places.map(withStatus);
   if (p.startsWith("/api/prefs/")) { const k = p.slice(11); return prefs()[k] ?? s.prefs[k] ?? null; }
@@ -118,6 +142,15 @@ export async function offlineGet(path: string): Promise<unknown> {
 }
 
 export async function offlineWrite(path: string, body: unknown): Promise<unknown> {
+  if (path === "/api/progress") { saveProgress({ ...progress(), ...(body as Prog) }); return progress(); }
+  const pm = path.match(/^\/api\/progress\/(mission|character)\/(.+)$/);
+  if (pm) {
+    const id = decodeURIComponent(pm[2]), on = (body as { value: boolean }).value, pr = progress();
+    const key = pm[1] === "mission" ? "completed_missions" : "met_characters";
+    pr[key] = on ? [...new Set([...pr[key], id])] : pr[key].filter((x) => x !== id);
+    saveProgress(pr);
+    return options(await load());
+  }
   const rv = path.match(/^\/api\/entity\/(.+)\/(hint|solution|reveal-name)/);
   if (rv) {
     const id = decodeURIComponent(rv[1]);

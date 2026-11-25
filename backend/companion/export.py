@@ -43,8 +43,20 @@ def build(db_path: str) -> dict:
             if hints or sol or vid or name:
                 locked[eid] = {"hints": hints, "solution": sol, "video": json.loads(vid[0]) if vid else None,
                                "name": name[0] if name else None}
+        story = {
+            "chapters": [{"num": r[0], "title": r[1]} for r in c.execute("SELECT num, title FROM chapter ORDER BY num")],
+            "missions": [{"id": r[0], "name": r[1], "alias": r[2], "kind": r[3], "name_safe": r[4] == "safe",
+                          "chapter": (json.loads(r[5]) if r[5] else None)}
+                         for r in c.execute("""SELECT e.id, e.canonical_name, e.neutral_alias, e.kind, e.name_status,
+                              (SELECT value_json FROM claim WHERE entity_id=e.id AND field='chapter' AND status<>'obsolete')
+                              FROM entity e WHERE e.kind IN ('mission','side_mission') AND e.spoiler_status='evaluated'""")],
+            "characters": [{"id": r[0], "name": r[1], "chapter": r[2]} for r in c.execute("""
+                SELECT e.id, e.canonical_name, (SELECT MIN(g.chapter) FROM spoiler_gate g WHERE g.entity_id=e.id AND g.kind='chapter')
+                FROM entity e WHERE e.kind='character' AND e.spoiler_status='evaluated' AND e.name_status='safe'""")],
+        }
         return {
-            "version": 2,
+            "version": 3,
+            "story": story,
             "locked": locked,
             "vehicles": catalog.vehicles(c),
             "weapons": catalog.weapons(c),

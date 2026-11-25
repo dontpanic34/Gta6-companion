@@ -45,3 +45,24 @@ def test_import_merges_with_existing_and_translates():
     fr = c.execute("SELECT value_json FROM claim WHERE entity_id='vehicle:banshee:std' AND field='design'").fetchone()[0]
     assert json.loads(fr).startswith("Un roadster")
     assert translate.run(c, translator=lambda t: "x") == 0   # pas de double traduction
+
+
+MISSIONS = """<h2 id="Prologue">Prologue</h2><table><tr><th>Image</th><th>Mission</th><th>Description</th></tr>
+<tr><td></td><td><a href="/w/Prologue" title="Prologue">Prologue</a></td><td>Lucia meets a counselor.</td></tr></table>
+<h2 id="Chapter_2:_CANARI_Lost">Chapter 2: CANARI Lost</h2><h3 id="X"><a href="/w/X" title="X">Donneur CANARI</a></h3>
+<table><tr><td></td><td><a href="/w/Trahison_CANARI" title="Trahison CANARI">Trahison CANARI</a></td><td>CANARI meurt.</td></tr></table>
+<h2 id="References">References</h2>"""
+
+
+def test_missions_are_gated_by_chapter():
+    from companion import spoiler
+    from companion.spoiler import Progress
+    c = db.connect()
+    importer.import_missions(c, gtawiki.parse_missions(MISSIONS))
+    spoiler.reindex(c)
+    pub = str([spoiler.get_entity(c, e["id"]) for e in spoiler.list_visible(c)]) + str(spoiler.search(c, "CANARI"))
+    assert "CANARI" not in pub
+    p = spoiler.get_entity(c, "mission:prologue")
+    assert p["name"] == "Prologue" and p["content"] == []          # description = niveau 3, masquée
+    spoiler.set_progress(c, Progress(chapter=2))
+    assert spoiler.get_entity(c, "mission:trahison-canari")["name"] == "Trahison CANARI"

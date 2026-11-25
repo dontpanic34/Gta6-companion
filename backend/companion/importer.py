@@ -359,3 +359,84 @@ def import_wiki_items(conn: sqlite3.Connection, items: list) -> ImportReport:
                              (vid, it.image, SOURCE_ID, "evaluated" if ns and ns[0] == "safe" else "unknown"))
     reclassify_catalog_names(conn)
     return report
+
+
+def import_missions(conn: sqlite3.Connection, missions: list[dict], source_id: str = "gtawiki") -> ImportReport:
+    """Missions principales : visibles seulement à partir de leur chapitre (porte de progression).
+    Le donneur (personnage) suit la même porte. La description (mise en place de l'histoire)
+    est rangée en niveau 3 : affichée uniquement sur confirmation explicite."""
+    report = ImportReport()
+    ensure_sources(conn)
+    with conn:
+        side_n = 0
+        for m in missions:
+            if m["chapter"] is not None:
+                conn.execute("INSERT INTO chapter(num,title) VALUES (?,?) ON CONFLICT(num) DO UPDATE SET title=excluded.title",
+                             (m["chapter"], m["chapter_title"]))
+            eid = f"mission:{_slugify(m['title'])}"
+            is_side = m["kind"] == "side_mission"
+            side_n += is_side
+            alias = f"Mission secondaire n°{side_n}" if is_side else f"Mission du chapitre {m['chapter']}"
+            if not conn.execute("SELECT 1 FROM entity WHERE id=?", (eid,)).fetchone():
+                conn.execute("INSERT INTO entity(id,kind,canonical_name,neutral_alias,spoiler_status,name_status,category,reliability) "
+                             "VALUES (?,?,?,?,?,?,?,?)",
+                             (eid, m["kind"], m["title"], alias, "evaluated", "unknown" if is_side else "safe",
+                              "Missions secondaires" if is_side else (f"Prologue" if m["chapter"] == 0 else f"Chapitre {m['chapter']}"),
+                              "probable"))
+                report.created.append(eid)
+                if m["chapter"]:
+                    conn.execute("INSERT INTO spoiler_gate(entity_id,field,kind,chapter) VALUES (?,?,?,?)",
+                                 (eid, None, "chapter", m["chapter"]))
+            if m.get("giver"):
+                cid = f"character:{_slugify(m['giver'])}"
+                if not conn.execute("SELECT 1 FROM entity WHERE id=?", (cid,)).fetchone():
+                    conn.execute("INSERT INTO entity(id,kind,canonical_name,neutral_alias,spoiler_status,name_status,reliability) "
+                                 "VALUES (?,?,?,?,?,?,?)", (cid, "character", m["giver"], "Personnage", "evaluated", "safe", "probable"))
+                    if m["chapter"]:
+                        conn.execute("INSERT INTO spoiler_gate(entity_id,field,kind,chapter) VALUES (?,?,?,?)",
+                                     (cid, None, "chapter", m["chapter"]))
+                    elif is_side:  # donneur de mission secondaire : nom masqué jusqu'à révélation
+                        conn.execute("UPDATE entity SET name_status='unknown' WHERE id=?", (cid,))
+                _record_claim_raw(conn, eid, "giver", m["giver"], source_id, m["url"], "evaluated" if not is_side else "unknown", report)
+            if m["chapter"] is not None:
+                _record_claim_raw(conn, eid, "chapter", m["chapter"], source_id, m["url"], "evaluated", report)
+            _record_claim_raw(conn, eid, "source_page", m["url"], source_id, m["url"], "evaluated", report)
+            if m.get("description"):
+                cur = conn.execute("SELECT id FROM activity_content WHERE entity_id=? AND level=3 AND ord=0", (eid,)).fetchone()
+                if cur:
+                    conn.execute("UPDATE activity_content SET body=? WHERE id=?", (m["description"].strip("“” "), cur["id"]))
+                else:
+                    conn.execute("INSERT INTO activity_content(entity_id,level,ord,body,spoiler_status) VALUES (?,?,?,?,?)",
+                                 (eid, 3, 0, m["description"].strip("“” "), "evaluated"))
+            if m.get("image") and not conn.execute("SELECT 1 FROM media WHERE entity_id=?", (eid,)).fetchone():
+                conn.execute("INSERT INTO media(entity_id,url,source_id,spoiler_status) VALUES (?,?,?,?)",
+                             (eid, m["image"], source_id, "unknown"))   # miniature : peut montrer une scène
+    return report
+
+
+def enrich_vehicle_on_demand(conn: sqlite3.Connection, vid: str, name: str, client=None) -> bool:
+    """Fiche ouverte sans stats : lit UNE page GTACity (cache 30 j) et rattache stats,
+    transmission, places et photo à CETTE fiche (aucun doublon)."""
+    from .connectors import gtacity
+    from .http import PoliteClient
+    client = client or PoliteClient(Path(conn.execute("PRAGMA database_list").fetchone()[2]).parent / "http-cache", min_interval=2)
+    try:
+        idx = gtacity.vehicle_index(client.get(gtacity.SITEMAP, max_age=24 * 3600).text)
+        url = gtacity.find_url(idx, name)
+        item = gtacity.parse_vehicle(url, client.get(url, max_age=30 * 24 * 3600).text) if url else None
+    except Exception:
+        return False
+    if not item:
+        return False
+    report = ImportReport()
+    with conn:
+        for f, v in item.fields.items():
+            if f in ("class",):
+                continue
+            _record_claim(conn, vid, f, v, "gtacity", url, report)
+        for img in item.images:
+            if not conn.execute("SELECT 1 FROM media WHERE entity_id=? AND url=?", (vid, img)).fetchone():
+                ns = conn.execute("SELECT name_status FROM entity WHERE id=?", (vid,)).fetchone()
+                conn.execute("INSERT INTO media(entity_id,url,source_id,spoiler_status) VALUES (?,?,?,?)",
+                             (vid, img, "gtacity", "evaluated" if ns and ns[0] == "safe" else "unknown"))
+    return True

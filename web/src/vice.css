@@ -47,3 +47,19 @@ h2, .sheet h2 { font-family: var(--display); font-weight: 400; font-size: 26px; 
 .vc-hero .vc-title span { font-family: var(--display); font-size: 20px; letter-spacing: .25em; color: #140a24; background: var(--gold); padding: 2px 8px; }
 .vc-hero .vc-settings { position: absolute; right: 14px; top: calc(12px + var(--safe-top)); background: #140a24aa; border-color: #ffffff33; color: #fff; }
 .d-text { margin: 0; line-height: 1.55; color: #e9ddf7; white-space: pre-line; }
+.stepper { display: grid; grid-template-columns: 56px 1fr 56px; align-items: center; text-align: center; gap: 10px; }
+.stepper button { height: 56px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text); display: grid; place-items: center; }
+.step-num { font-family: var(--display); font-size: 34px; letter-spacing: .03em; line-height: 1; background: var(--neon); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.checklist { display: grid; gap: 6px; }
+.checkrow { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--text); min-height: 48px; }
+.checkrow .box { width: 26px; height: 26px; border-radius: 8px; border: 2px solid var(--line); display: grid; place-items: center; flex: none; }
+.checkrow.on .box { background: var(--teal); border-color: var(--teal); color: #140a24; }
+.checkrow.on { border-color: #2ee6d666; }
+.seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 0 12px 6px; }
+.seg button { padding: 10px 4px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); font-family: var(--display); font-size: 16px; letter-spacing: .05em; }
+.seg button.on { background: var(--neon); color: #fff; border-color: transparent; }
+.home .prog { display: flex; align-items: center; gap: 12px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+.statcard { display: grid; gap: 2px; }
+.statcard b { font-family: var(--display); font-weight: 400; font-size: 40px; line-height: 1; background: var(--neon); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.statcard span { font-size: 13px; color: var(--muted); }

@@ -24,7 +24,12 @@ export default function EntityPage() {
   const done = e.status === "done";
   const image = e.linked?.image ?? e.media[0];
   const sourceUrl = claim("source_page") ?? e.claims.find((c) => c.source_url)?.source_url;
-  const toggleDone = () => api.setStatus(e.id, done ? "to_discover" : "done").then(() => setE({ ...e, status: done ? "to_discover" : "done" }));
+  const toggleDone = () => {
+    const isMission = e.kind === "mission" || e.kind === "side_mission";
+    // une mission faite fait aussi avancer la progression anti-spoiler
+    const p = isMission ? api.setMission(e.id, !done).then(() => api.setStatus(e.id, done ? "to_discover" : "done")) : api.setStatus(e.id, done ? "to_discover" : "done");
+    p.then(() => setE({ ...e, status: done ? "to_discover" : "done" }));
+  };
 
   return (
     <div className="page entity">

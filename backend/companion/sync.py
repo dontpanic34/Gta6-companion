@@ -114,6 +114,11 @@ def sync_gtawiki(conn, client: PoliteClient, kinds: set[str], limit: int | None)
         if i % 25 == 0:
             log.info("gtawiki %d/%d", i, len(targets))
     rep = importer.import_wiki_items(conn, items)
+    try:
+        ms = gtawiki.parse_missions(client.get(gtawiki.MISSIONS_INDEX, max_age=20 * 3600).text)
+        importer.import_missions(conn, ms)
+    except Exception as e:
+        errors.append((gtawiki.MISSIONS_INDEX, str(e)))
     spoiler.reindex(conn)
     return {"source": "gtawiki", "checked": len(targets), "parsed": len(items), "not_gta6": skipped, "errors": errors,
             "created": len(rep.created), "changed": rep.changed, "quarantined": rep.quarantined}

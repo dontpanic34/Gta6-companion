@@ -5,6 +5,7 @@ Exposer uniquement via Tailscale, jamais directement sur Internet.
 """
 from __future__ import annotations
 
+import json
 import os
 import secrets
 import threading
@@ -72,6 +73,51 @@ def put_progress(p: ProgressIn):
     return get_progress()
 
 
+@app.get("/api/progress/options", dependencies=[Depends(auth)])
+def progress_options():
+    """Ce que le joueur peut cocher, filtré par sa progression (aucun titre de chapitre futur)."""
+    c = conn()
+    cur = c.execute("SELECT chapter FROM progress_state").fetchone()[0]
+    done = {r[0] for r in c.execute("SELECT entity_id FROM progress_mission")}
+    met = {r[0] for r in c.execute("SELECT entity_id FROM progress_character")}
+    chapters = [{"num": r[0], "title": r[1] if r[0] <= cur else None} for r in c.execute("SELECT num, title FROM chapter ORDER BY num")]
+    missions = [{"id": r["id"], "name": r["display_name"], "kind": r["kind"],
+                 "chapter": (json.loads(r["ch"]) if r["ch"] else None), "done": r["id"] in done}
+                for r in c.execute("""SELECT v.id, v.display_name, v.kind,
+                     (SELECT value_json FROM claim WHERE entity_id=v.id AND field='chapter' AND status<>'obsolete') AS ch
+                     FROM visible_entity v WHERE v.kind IN ('mission','side_mission') ORDER BY ch, v.display_name""")]
+    characters = [{"id": r["id"], "name": r["display_name"], "met": r["id"] in met}
+                  for r in c.execute("SELECT id, display_name FROM visible_entity WHERE kind='character' ORDER BY display_name")]
+    return {"chapter": cur, "max_chapter": max([x["num"] for x in chapters] + [5]), "chapters": chapters,
+            "missions": missions, "characters": characters}
+
+
+class FlagIn(BaseModel):
+    value: bool
+
+
+@app.put("/api/progress/mission/{entity_id:path}", dependencies=[Depends(auth)])
+def set_mission_done(entity_id: str, f: FlagIn):
+    c = conn()
+    with c:
+        if f.value:
+            c.execute("INSERT OR IGNORE INTO progress_mission(entity_id) VALUES (?)", (entity_id,))
+        else:
+            c.execute("DELETE FROM progress_mission WHERE entity_id=?", (entity_id,))
+    return progress_options()
+
+
+@app.put("/api/progress/character/{entity_id:path}", dependencies=[Depends(auth)])
+def set_character_met(entity_id: str, f: FlagIn):
+    c = conn()
+    with c:
+        if f.value:
+            c.execute("INSERT OR IGNORE INTO progress_character(entity_id) VALUES (?)", (entity_id,))
+        else:
+            c.execute("DELETE FROM progress_character WHERE entity_id=?", (entity_id,))
+    return progress_options()
+
+
 @app.get("/api/vehicles", dependencies=[Depends(auth)])
 def list_vehicles(
     q: str | None = None,
@@ -110,7 +156,12 @@ def list_weapons(q: str | None = None, wclass: list[str] = Query(default=[]),
 
 @app.get("/api/vehicles/{entity_id:path}", dependencies=[Depends(auth)])
 def get_vehicle(entity_id: str):
-    d = catalog.item_detail(conn(), entity_id)
+    c = conn()
+    d = catalog.item_detail(c, entity_id)
+    if d and entity_id.startswith("vehicle:") and "speed" not in d["fields"] and not d.get("name_hidden"):
+        # stats manquantes (fiche venue du wiki) : lecture à la demande d'UNE page GTACity
+        if importer.enrich_vehicle_on_demand(c, entity_id, d["name"]):
+            d = catalog.item_detail(c, entity_id)
     if not d:
         raise HTTPException(404, "Introuvable ou masqué par la protection anti-spoiler")
     return d

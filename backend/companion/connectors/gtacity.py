@@ -36,14 +36,20 @@ def vehicle_index(sitemap_xml: str) -> dict[str, str]:
 
 
 def find_url(index: dict[str, str], name: str) -> str | None:
-    """« Canis Gunrunner Kamacho » -> …/kamacho/gunrunner-kamacho (le slug omet la marque)."""
+    """« Canis Gunrunner Kamacho » -> …/kamacho/gunrunner-kamacho ; « Vapid Stanier (1955) » -> stanier-55.
+    Le slug omet la marque ; les années s'écrivent sur 2 chiffres côté GTACity."""
     toks = norm(name).split()
+    toks += [t[2:] for t in toks if re.fullmatch(r"(19|20)\d\d", t)]
     best, best_score = None, 0.0
     for slug, url in index.items():
         st = slug.split()
-        if not all(t in toks for t in st):
-            continue                      # chaque mot du slug doit figurer dans le nom
-        score = len(st) / max(len(toks), 1)
+        words = [t for t in st if not t.isdigit()]
+        if not words or not all(t in toks for t in words):
+            continue                      # chaque mot (hors année) du slug doit figurer dans le nom
+        years = [t for t in st if t.isdigit()]
+        if years and not any(y in toks for y in years) and any(t.isdigit() for t in toks):
+            continue                      # années contradictoires (Stanier 55 vs Stanier 98)
+        score = len(words) / max(len([t for t in toks if not t.isdigit()]), 1) + 0.01 * sum(y in toks for y in years)
         if score > best_score:
             best, best_score = url, score
     return best if best_score >= 0.5 else None

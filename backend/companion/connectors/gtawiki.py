@@ -163,3 +163,45 @@ def wiki_class(it: "WikiItem") -> str | None:
         if re.search(rx, src):
             return cls
     return None
+
+
+MISSIONS_INDEX = f"{BASE}/w/Missions_in_GTA_VI"
+
+
+def parse_missions(page: str) -> list[dict]:
+    """Missions par chapitre (Prologue = 0) et donneur, depuis « Missions in GTA VI »."""
+    out = []
+    h2s = list(re.finditer(r'<h2 id="([^"]+)"[^>]*>(.*?)</h2>', page, re.S))
+    for i, h in enumerate(h2s):
+        sid, title = h.group(1), clean(h.group(2))
+        if sid == "Prologue":
+            chapter, kind = 0, "mission"
+        elif sid.startswith("Chapter_"):
+            m = re.match(r"Chapter_(\d+)", sid)
+            chapter, kind = int(m.group(1)), "mission"
+        elif sid == "Side_Missions":
+            chapter, kind = None, "side_mission"
+        else:
+            continue
+        chapter_title = title.split(":", 1)[1].strip() if ":" in title else title
+        end = h2s[i + 1].start() if i + 1 < len(h2s) else len(page)
+        sect = page[h.end():end]
+        giver = None
+        for tok in re.finditer(r'<h3 id="[^"]+"[^>]*>(.*?)</h3>|<tr>(.*?)</tr>', sect, re.S):
+            if tok.group(1) is not None:
+                giver = clean(tok.group(1))
+                continue
+            cells = re.findall(r"<td[^>]*>(.*?)</td>", tok.group(2), re.S)
+            if len(cells) < 2:
+                continue
+            link = re.search(r'<a href="/w/([^"#?]+)"[^>]*title="([^"]+)"', cells[1])
+            if not link:
+                continue
+            img = re.search(r'<img[^>]+src="([^"]+)"', cells[0])
+            out.append({
+                "kind": kind, "chapter": chapter, "chapter_title": chapter_title, "giver": giver,
+                "title": html.unescape(link.group(2)), "url": f"{BASE}/w/{link.group(1)}",
+                "description": clean(cells[2]) if len(cells) > 2 else None,
+                "image": BASE + re.sub(r"/thumb(/.+?)/\d+px-[^/?]+", r"\1", img.group(1).split("?")[0]) if img else None,
+            })
+    return out

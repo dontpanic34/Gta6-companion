@@ -24,6 +24,12 @@ export interface ChatReply { text: string; cards: ChatCard[]; actions: ChatActio
 
 export interface XboxSummary { total: number; unlocked_count: number; locked_count: number; unlocked: { name: string; description: string; unlocked_at: string }[] }
 
+export interface ProgressOptions {
+  chapter: number; max_chapter: number; chapters: { num: number; title: string | null }[];
+  missions: { id: string; name: string; kind: string; chapter: number | null; done: boolean }[];
+  characters: { id: string; name: string; met: boolean }[];
+}
+
 export interface FieldValue {
   value: unknown; kind: "official" | "community" | "subjective"; contradiction: boolean;
   sources: { source: string; url: string | null; value: unknown; status: string; observed_at: string }[];
@@ -107,6 +113,9 @@ export const api = {
     req<ChatReply>("/api/assistant", { method: "POST", body: JSON.stringify({ message, history, session: "phone" }) }),
   xbox: () => req<XboxSummary>("/api/xbox"),
   xboxSync: () => req<XboxSummary & { ok?: boolean; error?: string; new_unlocked?: number }>("/api/xbox/sync", { method: "POST" }),
+  progressOptions: () => req<ProgressOptions>("/api/progress/options"),
+  setMission: (id: string, value: boolean) => req<ProgressOptions>(`/api/progress/mission/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify({ value }) }),
+  setCharacter: (id: string, value: boolean) => req<ProgressOptions>(`/api/progress/character/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify({ value }) }),
   garage: () => req<{ id: string; name: string; status: string }[]>("/api/garage"),
   setStatus: (id: string, status: string) => req(`/api/status/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify({ status }) }),
 };
