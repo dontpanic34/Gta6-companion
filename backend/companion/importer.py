@@ -350,8 +350,8 @@ def import_wiki_items(conn: sqlite3.Connection, items: list) -> ImportReport:
             if it.variants:
                 _record_claim_raw(conn, vid, "variants_list", it.variants, SOURCE_ID, it.url, "evaluated", report)
             for fname, txt in it.texts.items():
-                st = classify.field_spoiler_status("description", txt)
-                st = "evaluated" if (fname in ("design_en", "performance_en") and not classify.NARRATIVE_HINTS.search(txt)) else st
+                st = classify.descriptive_status(txt) if fname in classify.DESCRIPTIVE_TEXT \
+                    else classify.field_spoiler_status("description", txt)
                 _record_claim_raw(conn, vid, fname, txt, SOURCE_ID, it.url, st, report)
             if it.image and not conn.execute("SELECT 1 FROM media WHERE entity_id=? AND url=?", (vid, it.image)).fetchone():
                 ns = conn.execute("SELECT name_status FROM entity WHERE id=?", (vid,)).fetchone()

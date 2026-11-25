@@ -14,7 +14,7 @@ SAFE_FIELDS = {
     "handling_offroad", "strength", "style", "era", "security", "access", "tracker",
     "can_register", "standout_set", "specialist", "body_condition", "game_edition",
     "damage", "fire_rate", "range", "accuracy", "recoil", "capacity", "base_model",
-    "weapon_handling", "purchase_from", "moddable", "ammo_upgrade",
+    "weapon_handling", "purchase_from", "moddable", "ammo_upgrade", "body_style", "variants_list",
 }
 
 # Champs textuels : auto-évalués seulement si le texte est « sûr ».
@@ -91,3 +91,15 @@ NON_POI = re.compile(
 
 def is_poi(category: str | None) -> bool:
     return not (category and NON_POI.search(category))
+
+
+# Textes purement descriptifs (apparence, conduite, personnalisation) : affichés s'ils ne
+# contiennent aucun indice narratif. Les emplacements / obtentions restent stricts.
+DESCRIPTIVE_TEXT = {"description_en", "design_en", "performance_en", "modifications_en",
+                    "description", "design", "performance", "modifications"}
+STORY_EN = re.compile(r"\b(mission|chapter|story|storyline|ending|betray|dies|death|killed|reward for|after completing|"
+                      r"protagonist|cutscene|heist|finale|epilogue|unlocked by|owned by)\b", re.I)
+
+
+def descriptive_status(text: str) -> str:
+    return "unknown" if STORY_EN.search(text) or NARRATIVE_HINTS.search(text) or FR_NARRATIVE.search(text) else "evaluated"
