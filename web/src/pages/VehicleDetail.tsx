@@ -1,3 +1,4 @@
+import { ChevronLeft, Lock, TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, DRIVETRAIN_FR, FIELD_LABELS, KIND_LABELS, STAT_LABELS, VehicleDetail, WEAPON_STAT_LABELS } from "../api";
@@ -32,10 +33,10 @@ export default function VehicleDetailPage() {
 
   return (
     <div className="page">
-      <Link to={back} className="muted small">← {isWeapon ? "Armes" : "Véhicules"}</Link>
+      <Link to={back} className="muted small"><ChevronLeft size={16} style={{ verticalAlign: "-3px" }} />{isWeapon ? "Armes" : "Véhicules"}</Link>
       <h1>{d.name}</h1>
       {d.media[0] ? <img className="thumb" src={d.media[0]} alt="" referrerPolicy="no-referrer" /> : <div className="thumb" />}
-      {d.missable_warning && <p className="notice">⚠ Ce véhicule peut devenir définitivement inaccessible.</p>}
+      {d.missable_warning && <p className="notice"><TriangleAlert size={15} style={{ verticalAlign: "-3px" }} /> Ce véhicule peut devenir définitivement inaccessible.</p>}
 
       <div className="row" style={{ margin: "14px 0" }}>
         {(isWeapon ? GARAGE.filter(([k]) => k !== "lost") : GARAGE).map(([k, l]) => (
@@ -74,7 +75,7 @@ export default function VehicleDetailPage() {
         </tbody></table>
         {d.hidden_fields > 0 && (
           <p className="small muted" style={{ marginTop: 10 }}>
-            🔒 {d.hidden_fields} information(s) masquée(s) par la protection anti-spoiler (progression insuffisante ou non vérifiée).
+            <Lock size={13} style={{ verticalAlign: "-2px" }} /> {d.hidden_fields} information(s) masquée(s) par la protection anti-spoiler (progression insuffisante ou non vérifiée).
           </p>
         )}
       </div>

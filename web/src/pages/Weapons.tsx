@@ -1,3 +1,4 @@
+import { Star } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, WEAPON_STAT_LABELS, WeaponSummary } from "../api";
@@ -17,7 +18,7 @@ export default function Weapons() {
       <h1>Armes</h1>
       <input className="input" placeholder="Rechercher une arme…" value={sp.get("q") ?? ""} onChange={(e) => set("q", e.target.value)} />
       <div className="row" style={{ margin: "12px 0", overflowX: "auto", flexWrap: "nowrap" }}>
-        <button className={`chip ${sp.get("ranked") ? "on" : ""}`} onClick={() => set("ranked", sp.get("ranked") ? null : "true")}>★ Classement</button>
+        <button className={`chip ${sp.get("ranked") ? "on" : ""}`} onClick={() => set("ranked", sp.get("ranked") ? null : "true")}><Star size={15} /> Classement</button>
         <button className={`chip ${sp.get("free_only") ? "on" : ""}`} onClick={() => set("free_only", sp.get("free_only") ? null : "true")}>Gratuites</button>
         <button className={`chip ${!cls ? "on" : ""}`} onClick={() => set("wclass", null)}>Toutes</button>
         {classes.map((c) => <button key={c} className={`chip ${cls === c ? "on" : ""}`} onClick={() => set("wclass", c)}>{c}</button>)}

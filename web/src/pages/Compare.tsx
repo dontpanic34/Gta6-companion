@@ -1,3 +1,4 @@
+import { ChevronLeft, Circle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, STAT_LABELS, Stats, VehicleDetail } from "../api";
@@ -52,12 +53,12 @@ export default function Compare() {
 
   return (
     <div className="page">
-      <Link to="/vehicules" className="muted small">← Véhicules</Link>
+      <Link to="/vehicules" className="muted small"><ChevronLeft size={16} style={{ verticalAlign: "-3px" }} />Véhicules</Link>
       <h1>Comparateur</h1>
       <div className="card">
         <Radar series={series} />
         <div className="row" style={{ justifyContent: "center", marginTop: 8 }}>
-          {series.map((s, i) => <span key={s.id} className="small"><b style={{ color: COLORS[i] }}>●</b> {s.name}</span>)}
+          {series.map((s, i) => <span key={s.id} className="small"><b style={{ color: COLORS[i] }}><Circle size={10} fill="currentColor" /></b> {s.name}</span>)}
         </div>
       </div>
 

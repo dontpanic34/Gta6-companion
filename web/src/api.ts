@@ -1,3 +1,4 @@
+import { offlineGet, offlineWrite } from "./offline";
 export type Stats = Record<"speed" | "acceleration" | "handling_road" | "handling_offroad" | "strength", number | null>;
 
 export interface VehicleSummary {
@@ -54,11 +55,25 @@ export const setBaseUrl = (u: string) => { try { localStorage.setItem(BASE_KEY, 
 export const getToken = () => { try { return localStorage.getItem(TOKEN_KEY) ?? ""; } catch { return ""; } };
 export const setToken = (t: string) => { try { localStorage.setItem(TOKEN_KEY, t); } catch { /* ignore */ } };
 
+const isNative = () => !!(window as any).Capacitor?.isNativePlatform?.();
+
 async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const method = (init.method ?? "GET").toUpperCase();
+  const base = getBaseUrl();
+  // APK sans PC configuré : directement hors ligne
+  if (isNative() && !base) {
+    return (method === "GET" ? offlineGet(path) : offlineWrite(path, init.body ? JSON.parse(String(init.body)) : null)) as Promise<T>;
+  }
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   const t = getToken();
   if (t) headers.Authorization = `Bearer ${t}`;
-  const r = await fetch(getBaseUrl() + path, { ...init, headers: { ...headers, ...(init.headers as object) } });
+  let r: Response;
+  try {
+    r = await fetch(base + path, { ...init, headers: { ...headers, ...(init.headers as object) }, signal: AbortSignal.timeout(6000) });
+  } catch {
+    // PC injoignable : on bascule sur l'instantané embarqué
+    return (method === "GET" ? offlineGet(path) : offlineWrite(path, init.body ? JSON.parse(String(init.body)) : null)) as Promise<T>;
+  }
   if (!r.ok) throw new Error(r.status === 401 ? "Jeton requis (Réglages)" : r.status === 404 ? "Introuvable ou masqué (anti-spoiler)" : `Erreur ${r.status}`);
   return r.json();
 }

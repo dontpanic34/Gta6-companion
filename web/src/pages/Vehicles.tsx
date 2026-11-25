@@ -1,3 +1,4 @@
+import { Check, Plus, Star, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api, DRIVETRAIN_FR, STAT_LABELS, Stats, VehicleSummary } from "../api";
@@ -48,7 +49,7 @@ export default function Vehicles() {
       <h1>Véhicules</h1>
       <input className="input" placeholder="Rechercher un véhicule…" value={sp.get("q") ?? ""} onChange={(e) => set("q", e.target.value)} />
       <div className="row" style={{ margin: "12px 0", overflowX: "auto", flexWrap: "nowrap" }}>
-        <button className={`chip ${profile ? "on" : ""}`} onClick={() => set("use_profile", profile ? null : "true")}>★ Mon style</button>
+        <button className={`chip ${profile ? "on" : ""}`} onClick={() => set("use_profile", profile ? null : "true")}><Star size={15} /> Mon style</button>
         <button className={`chip ${activeCount ? "on" : ""}`} onClick={() => setShowFilters(true)}>Filtres{activeCount ? ` (${activeCount})` : ""}</button>
         <button className={`chip ${sp.getAll("exclude_class").includes("Muscle") ? "on" : ""}`} onClick={() => toggleMulti("exclude_class", "Muscle")}>Sans muscle cars</button>
         <button className={`chip ${sp.get("min_handling_offroad") ? "on" : ""}`} onClick={() => set("min_handling_offroad", sp.get("min_handling_offroad") ? null : "6")}>Bon hors route</button>
@@ -65,7 +66,7 @@ export default function Vehicles() {
             <Link to={`/vehicules/${encodeURIComponent(v.id)}`}>
               {v.image ? <img src={v.image} alt="" loading="lazy" referrerPolicy="no-referrer" /> : <div className="thumb" />}
             </Link>
-            <button className={`check ${selected.includes(v.id) ? "on" : ""}`} onClick={() => toggleSel(v.id)} aria-label="Comparer">{selected.includes(v.id) ? "✓" : "+"}</button>
+            <button className={`check ${selected.includes(v.id) ? "on" : ""}`} onClick={() => toggleSel(v.id)} aria-label="Comparer">{selected.includes(v.id) ? <Check size={16} /> : <Plus size={16} />}</button>
             <Link to={`/vehicules/${encodeURIComponent(v.id)}`}>
               <div className="row">
                 <span className="title">{v.name}</span><span className="spacer" />
@@ -90,7 +91,7 @@ export default function Vehicles() {
             onClick={() => nav(`/vehicules/comparer?ids=${selected.map(encodeURIComponent).join(",")}`)}>
             Comparer ({selected.length}/4)
           </button>
-          <button className="btn ghost" onClick={() => setSelected([])}>✕</button>
+          <button className="btn ghost" onClick={() => setSelected([])}><X size={18} /></button>
         </div>
       )}
 

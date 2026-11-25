@@ -10,3 +10,5 @@ backend/data/
 *.tsbuildinfo
 .cache/
 web/public/tiles/
+web/public/data/
+web/android/local.properties

@@ -1,3 +1,4 @@
+import { ChevronLeft, Lightbulb, TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api, EntityFull, RELIABILITY_FR } from "../api";
@@ -25,7 +26,7 @@ export default function EntityPage() {
 
   return (
     <div className="page">
-      <button className="chip" onClick={() => nav(-1)}>← Retour</button>
+      <button className="chip" onClick={() => nav(-1)}><ChevronLeft size={16} /> Retour</button>
       <h1 style={{ marginTop: 14 }}>{e.name}</h1>
       <div className="row small">
         {e.category && <span className="badge">{e.category}</span>}
@@ -34,7 +35,7 @@ export default function EntityPage() {
         {claim("precision") && <span className="badge">{PRECISION_FR[claim("precision")] ?? claim("precision")}</span>}
         {claim("creators_count") && <span className="badge">vu par {claim("creators_count")} joueurs</span>}
       </div>
-      {e.missable_warning && <p className="notice">⚠ Ce contenu peut devenir définitivement inaccessible.</p>}
+      {e.missable_warning && <p className="notice"><TriangleAlert size={15} style={{ verticalAlign: "-3px" }} /> Ce contenu peut devenir définitivement inaccessible.</p>}
 
       <div className="row" style={{ margin: "14px 0" }}>
         {STATUS.map(([k, l]) => <button key={k} className={`chip ${status === k ? "on" : ""}`}
@@ -52,7 +53,7 @@ export default function EntityPage() {
       {(hints.length > 0 || e.hints_remaining > 0) && (<>
         <h2>Indices</h2>
         <div className="card">
-          {hints.map((c, i) => <p key={i} style={{ margin: "4px 0" }}>💡 {c.body}</p>)}
+          {hints.map((c, i) => <p key={i} style={{ margin: "4px 0" }}><Lightbulb size={15} style={{ verticalAlign: "-3px", color: "var(--warn)" }} /> {c.body}</p>)}
           {e.hints_remaining > 0 && <button className="btn ghost" onClick={() => api.hint(e.id).then(setE)}>
             Afficher un indice ({e.hints_remaining} restant{e.hints_remaining > 1 ? "s" : ""})</button>}
         </div>

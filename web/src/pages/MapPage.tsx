@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import L from "leaflet";
+import { Check, LocateFixed, Search, SlidersHorizontal, Star, X } from "lucide-react";
 import "leaflet/dist/leaflet.css";
 import { api, entityLink, getBaseUrl, Place } from "../api";
-import { ALL_FAMILIES, familyOf } from "../map/categories";
+import { ALL_FAMILIES, Family, familyOf, iconInner, markerHtml } from "../map/categories";
 import { createTileLayer, distance, gameToLatLng, latLngToGame, LEONIDA_BOUNDS, TILE_BOUNDS } from "../map/leonida";
 
 const STORE = "map_state_v1";
@@ -12,6 +13,18 @@ const load = (): MapState => {
   try { return { families: [], hideDone: false, me: null, ...JSON.parse(localStorage.getItem(STORE) ?? "{}") }; }
   catch { return { families: [], hideDone: false, me: null }; }
 };
+
+export function FamIcon({ f, size = 16, color }: { f: Family; size?: number; color?: string }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color ?? f.color} strokeWidth={2.2}
+    strokeLinecap="round" strokeLinejoin="round" dangerouslySetInnerHTML={{ __html: iconInner(f.icon) }} />;
+}
+
+const iconCache = new Map<string, L.DivIcon>();
+function pinIcon(f: Family, size: number, done: boolean) {
+  const k = `${f.id}${size}${done}`;
+  if (!iconCache.has(k)) iconCache.set(k, L.divIcon({ html: markerHtml(f, size, done), className: "pinwrap", iconSize: [size, size], iconAnchor: [size / 2, size / 2] }));
+  return iconCache.get(k)!;
+}
 
 export default function MapPage() {
   const el = useRef<HTMLDivElement>(null);
@@ -72,10 +85,13 @@ export default function MapPage() {
       if (p.x == null || p.y == null) return;
       const f = familyOf(p.category, p.id.startsWith("secret:"));
       const done = p.status === "done" || p.status === "discovered";
-      L.circleMarker(gameToLatLng(p.x, p.y), {
-        radius: zoom >= 5 ? 9 : zoom >= 4 ? 7 : zoom >= 3 ? 5 : 3.5, color: "#0d0b14", weight: zoom >= 3 ? 1.5 : 0.8,
-        fillColor: f.color, fillOpacity: done ? 0.35 : 0.95,
-      }).on("click", (e) => { L.DomEvent.stopPropagation(e); setPicked(p); }).addTo(g);
+      const ll = gameToLatLng(p.x, p.y);
+      const pick = (e: L.LeafletEvent) => { L.DomEvent.stopPropagation(e as L.LeafletMouseEvent); setPicked(p); };
+      if (zoom >= 3) {
+        L.marker(ll, { icon: pinIcon(f, zoom >= 5 ? 32 : zoom >= 4 ? 28 : 22, done), keyboard: false }).on("click", pick).addTo(g);
+      } else {
+        L.circleMarker(ll, { radius: 3.5, color: "#0d0b14", weight: 0.8, fillColor: f.color, fillOpacity: done ? 0.35 : 0.95 }).on("click", pick).addTo(g);
+      }
     });
   }, [visible, zoom]);
 
@@ -119,14 +135,14 @@ export default function MapPage() {
 
       <div className="map-top">
         <div className="searchbar">
-          <span className="muted">⌕</span>
+          <Search size={18} className="muted" />
           <input placeholder="Chercher un lieu, une catégorie, une zone…" value={q} onChange={(e) => setQ(e.target.value)} />
-          {q && <button className="iconbtn" onClick={() => setQ("")} aria-label="Effacer">✕</button>}
+          {q && <button className="iconbtn" onClick={() => setQ("")} aria-label="Effacer"><X size={18} /></button>}
         </div>
         <div className="chiprow">
           {ALL_FAMILIES.map((f) => (
             <button key={f.id} className={`chip ${st.families.includes(f.id) ? "on" : ""}`} onClick={() => toggleFam(f.id)}>
-              <b style={{ color: f.color }}>{f.icon}</b> {f.label}
+              <FamIcon f={f} /> {f.label}
             </button>
           ))}
         </div>
@@ -136,14 +152,14 @@ export default function MapPage() {
 
       <div className="fabs">
         <button className={`fab ${activeCount ? "on" : ""}`} onClick={() => setSheet("filters")} aria-label="Filtres">
-          ☰{activeCount ? <i>{activeCount}</i> : null}</button>
-        <button className={`fab ${st.me ? "on" : ""}`} onClick={aroundMe} aria-label="Autour de moi">◎</button>
+          <SlidersHorizontal size={22} />{activeCount ? <i>{activeCount}</i> : null}</button>
+        <button className={`fab ${st.me ? "on" : ""}`} onClick={aroundMe} aria-label="Autour de moi"><LocateFixed size={22} /></button>
       </div>
 
       {picked && !sheet && (
         <div className="pickcard">
           <div className="row" style={{ flexWrap: "nowrap" }}>
-            <span className="dot" style={{ background: familyOf(picked.category, picked.id.startsWith("secret:")).color }} />
+            <span className="famicon big" style={{ background: familyOf(picked.category, picked.id.startsWith("secret:")).color }}><FamIcon f={familyOf(picked.category, picked.id.startsWith("secret:"))} size={20} color="#fff" /></span>
             <div style={{ minWidth: 0 }}>
               <div className="title ellipsis">{picked.name}</div>
               <div className="small muted ellipsis">{picked.category} · {picked.region}</div>
@@ -151,8 +167,8 @@ export default function MapPage() {
           </div>
           <div className="row" style={{ marginTop: 10, flexWrap: "nowrap" }}>
             <button className={`btn ghost grow ${picked.status === "done" ? "on" : ""}`}
-              onClick={() => mark(picked, picked.status === "done" ? "to_discover" : "done")}>{picked.status === "done" ? "✓ Fait" : "Marquer fait"}</button>
-            <button className={`btn ghost ${picked.status === "favorite" ? "on" : ""}`} onClick={() => mark(picked, "favorite")} aria-label="Favori">☆</button>
+              onClick={() => mark(picked, picked.status === "done" ? "to_discover" : "done")}><Check size={16} /> {picked.status === "done" ? "Fait" : "Marquer fait"}</button>
+            <button className={`btn ghost ${picked.status === "favorite" ? "on" : ""}`} onClick={() => mark(picked, "favorite")} aria-label="Favori"><Star size={18} fill={picked.status === "favorite" ? "currentColor" : "none"} /></button>
             <Link className="btn grow" to={entityLink(picked.id)}>Fiche</Link>
           </div>
         </div>
@@ -171,7 +187,7 @@ export default function MapPage() {
               const n = places.filter((p) => familyOf(p.category, p.id.startsWith("secret:")).id === f.id).length;
               return (
                 <button key={f.id} className={`famtile ${st.families.includes(f.id) ? "on" : ""}`} onClick={() => toggleFam(f.id)}>
-                  <span style={{ color: f.color, fontSize: 22 }}>{f.icon}</span>
+                  <span className="famicon" style={{ background: f.color }}><FamIcon f={f} size={18} color="#fff" /></span>
                   <span>{f.label}</span><span className="muted small">{n}</span>
                 </button>
               );
@@ -189,8 +205,8 @@ export default function MapPage() {
           <div style={{ display: "grid", gap: 2 }}>
             {nearby.map(({ p, d }) => (
               <Link key={p.id} to={entityLink(p.id)} className="listrow">
-                <span className="dot" style={{ background: familyOf(p.category, p.id.startsWith("secret:")).color }} />
-                <span className="grow ellipsis">{p.status === "done" ? "✓ " : ""}{p.name}<span className="small muted"> · {p.category}</span></span>
+                <span className="famicon" style={{ background: familyOf(p.category, p.id.startsWith("secret:")).color }}><FamIcon f={familyOf(p.category, p.id.startsWith("secret:"))} size={16} color="#fff" /></span>
+                <span className="grow ellipsis">{p.status === "done" ? <Check size={14} style={{ verticalAlign: "-2px", color: "var(--ok)" }} /> : null} {p.name}<span className="small muted"> · {p.category}</span></span>
                 <span className="small muted">{d < 0 ? "zone" : d < 1000 ? `${Math.round(d)} m` : `${(d / 1000).toFixed(1)} km`}</span>
               </Link>
             ))}

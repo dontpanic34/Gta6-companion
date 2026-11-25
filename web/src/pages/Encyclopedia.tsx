@@ -1,3 +1,4 @@
+import { CarFront, Crosshair, ScrollText, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, entityLink } from "../api";
@@ -29,11 +30,11 @@ export default function Encyclopedia() {
       </div>
       <h2>Rubriques</h2>
       <div className="grid">
-        <Link to="/vehicules" className="card">🚗 Véhicules et variantes</Link>
-        <Link to="/armes" className="card">🔫 Armes et variantes</Link>
-        <div className="card muted">📜 Missions et quêtes — phase 5</div>
+        <Link to="/vehicules" className="card tile"><CarFront size={20} /> Véhicules et variantes</Link>
+        <Link to="/armes" className="card tile"><Crosshair size={20} /> Armes et variantes</Link>
+        <div className="card tile muted"><ScrollText size={20} /> Missions et quêtes — phase 5</div>
         {facets?.categories.filter((c) => c.secret).map((c) => (
-          <Link key={c.name} className="card" to={`/carte?category=${encodeURIComponent(c.name)}`}>✦ {c.name} <span className="muted small">({c.n})</span></Link>
+          <Link key={c.name} className="card tile" to={`/carte?category=${encodeURIComponent(c.name)}`}><Sparkles size={20} /> {c.name} <span className="muted small">({c.n})</span></Link>
         ))}
       </div>
     </div>
