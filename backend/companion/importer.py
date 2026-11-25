@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from pathlib import Path
 from dataclasses import dataclass, field
@@ -440,3 +441,68 @@ def enrich_vehicle_on_demand(conn: sqlite3.Connection, vid: str, name: str, clie
                 conn.execute("INSERT INTO media(entity_id,url,source_id,spoiler_status) VALUES (?,?,?,?)",
                              (vid, img, "gtacity", "evaluated" if ns and ns[0] == "safe" else "unknown"))
     return True
+
+
+PROTAGONISTS = {"Jason Duval", "Lucia Caminos", "Jason", "Lucia"}
+GENERIC_GIVERS = re.compile(r"^(Strangers|Random|Various|Unknown|Multiple|Phone|Prologue)\b", re.I) if True else None
+
+
+def reset_text_statuses(conn: sqlite3.Connection) -> None:
+    """Recalcule les statuts « automatiques » des textes (avant protect_story_names), pour réparer
+    un passage trop strict. Ne touche pas aux textes de niveau 3 ni aux contenus marqués à la main."""
+    with conn:
+        for cid, f, v, src in conn.execute("SELECT id, field, value_json, source_id FROM claim").fetchall():
+            try:
+                val = json.loads(v)
+            except ValueError:
+                continue
+            if src == "gtawiki" and f in classify.DESCRIPTIVE_TEXT and isinstance(val, str):
+                st = classify.descriptive_status(val)
+            elif src == "gta6map" and f in ("description", "subarea") and isinstance(val, str):
+                st = classify.secret_text_status(val)
+            elif f == "source_page":
+                st = "evaluated"
+            else:
+                continue
+            conn.execute("UPDATE claim SET spoiler_status=? WHERE id=?", (st, cid))
+        for aid, body in conn.execute("SELECT id, body FROM activity_content WHERE level < 3").fetchall():
+            conn.execute("UPDATE activity_content SET spoiler_status=? WHERE id=?", (classify.secret_text_status(body), aid))
+
+
+def protect_story_names(conn: sqlite3.Connection) -> int:
+    """Tout texte affichable qui cite un personnage / une mission / un chapitre encore protégé
+    (porte de chapitre, nom masqué) passe en 'unknown'. Les deux héros, connus dès le départ, sont publics."""
+    import re as _re
+    with conn:
+        for name in ("Jason Duval", "Lucia Caminos"):
+            eid = f"character:{_slugify(name)}"
+            conn.execute("DELETE FROM spoiler_gate WHERE entity_id=?", (eid,))
+    names = set()
+    for (n,) in conn.execute("SELECT title FROM chapter WHERE num > 0"):
+        names.add(n)
+    for (n, kind) in conn.execute("""SELECT DISTINCT e.canonical_name, e.kind FROM entity e WHERE e.kind IN ('character','mission','side_mission')
+                                AND (e.name_status <> 'safe' OR EXISTS (SELECT 1 FROM spoiler_gate g WHERE g.entity_id = e.id))"""):
+        if GENERIC_GIVERS.search(n):
+            continue
+        names.add(n)
+        # prénom seul (« Raul »), pour les PERSONNAGES uniquement (un titre de mission n'a pas de « prénom »)
+        if kind == "character" and " " in n and n.split()[0] not in PROTAGONISTS and len(n.split()[0]) >= 4:
+            names.add(n.split()[0])
+    names = {n for n in names if n not in PROTAGONISTS and len(n) >= 4}
+    if not names:
+        return 0
+    rx = _re.compile(r"\b(" + "|".join(_re.escape(n) for n in sorted(names, key=len, reverse=True)) + r")\b")
+    n = 0
+    with conn:
+        for cid, eid, f, v in conn.execute("SELECT id, entity_id, field, value_json FROM claim WHERE spoiler_status='evaluated'").fetchall():
+            own = conn.execute("SELECT canonical_name FROM entity WHERE id=?", (eid,)).fetchone()
+            text = json.loads(v) if v.startswith('"') else v
+            if isinstance(text, str) and rx.search(text) and not (own and rx.fullmatch(own[0] or "")):
+                n += conn.execute("UPDATE claim SET spoiler_status='unknown' WHERE id=?", (cid,)).rowcount
+        for aid, body in conn.execute("SELECT id, body FROM activity_content WHERE spoiler_status='evaluated' AND level < 3").fetchall():
+            if rx.search(body):
+                n += conn.execute("UPDATE activity_content SET spoiler_status='unknown' WHERE id=?", (aid,)).rowcount
+        # lien source d'une fiche au titre masqué : l'URL contient le titre
+        n += conn.execute("""UPDATE claim SET spoiler_status='unknown' WHERE field='source_page' AND spoiler_status='evaluated'
+                             AND entity_id IN (SELECT id FROM entity WHERE name_status <> 'safe')""").rowcount
+    return n

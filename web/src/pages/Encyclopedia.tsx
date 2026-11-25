@@ -56,14 +56,14 @@ export default function Encyclopedia() {
         {tab === "missions" && (<>
           {groups.map(([k, list]) => (
             <div key={k}>
-              <h4 className="sheet-h">{k} · {list.filter((m) => m.done).length}/{list.length}</h4>
+              <h4 className="sheet-h">{k} · {list.filter((m) => m.done).length}/{list.length} faites</h4>
               {list.map((m) => (
                 <div key={m.id} className="vrow" style={{ alignItems: "center" }}>
                   <Link to={entityLink(m.id)} className="vrow-main" style={{ alignItems: "center" }}>
                     <span className="famicon" style={{ background: m.done ? "var(--teal)" : "var(--surface-2)" }}>{m.done ? <Check size={16} color="#140a24" /> : <ChevronRight size={16} />}</span>
                     <span className="title grow" style={{ textAlign: "left" }}>{m.name}</span>
                   </Link>
-                  <button className={`selbtn ${m.done ? "on" : ""}`} onClick={() => api.setMission(m.id, !m.done).then(setO)} aria-label="Faite"><Check size={18} /></button>
+                  <button className={`selbtn ${m.done ? "on" : ""}`} onClick={() => api.setMission(m.id, !m.done).then(setO)} aria-label="Faite"><Check size={18} opacity={m.done ? 1 : 0.25} /></button>
                 </div>
               ))}
             </div>

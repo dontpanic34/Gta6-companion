@@ -85,7 +85,8 @@ def progress_options():
                  "chapter": (json.loads(r["ch"]) if r["ch"] else None), "done": r["id"] in done}
                 for r in c.execute("""SELECT v.id, v.display_name, v.kind,
                      (SELECT value_json FROM claim WHERE entity_id=v.id AND field='chapter' AND status<>'obsolete') AS ch
-                     FROM visible_entity v WHERE v.kind IN ('mission','side_mission') ORDER BY ch, v.display_name""")]
+                     FROM visible_entity v WHERE v.kind IN ('mission','side_mission')
+                     ORDER BY v.kind = 'side_mission', CAST(ch AS INTEGER), v.display_name""")]
     characters = [{"id": r["id"], "name": r["display_name"], "met": r["id"] in met}
                   for r in c.execute("SELECT id, display_name FROM visible_entity WHERE kind='character' ORDER BY display_name")]
     return {"chapter": cur, "max_chapter": max([x["num"] for x in chapters] + [5]), "chapters": chapters,

@@ -139,7 +139,8 @@ def main() -> None:
     conn = db.connect(a.db)
     client = PoliteClient(a.cache, min_interval=a.interval)
     Path(a.report_dir).mkdir(parents=True, exist_ok=True)
-    for src in a.source or ["gtabase", "gta6map", "gtawiki"]:
+    sources = a.source or ["gtabase", "gta6map", "gtawiki"]
+    for src in sources:
         try:  # une source en échec n'empêche pas les autres
             kinds = set(a.kind or ["vehicle", "weapon"])
             report = (sync_gtabase(conn, client, kinds, a.limit) if src == "gtabase"
@@ -148,6 +149,7 @@ def main() -> None:
         except Exception as e:
             log.exception("Source %s en échec", src)
             report = {"source": src, "fatal": str(e), "created": 0, "changed": [], "quarantined": [], "errors": []}
+        importer.protect_story_names(conn)   # après chaque source : aucun nom protégé dans un texte affiché
         out = Path(a.report_dir) / f"sync-{src}-{time.strftime('%Y%m%d-%H%M%S')}.json"
         out.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
         log.info("%s : rapport %s (créés %d, modifiés %d, quarantaine %d, erreurs %d)", src, out,

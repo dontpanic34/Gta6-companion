@@ -20,7 +20,12 @@ const ORDER = ["based_on", "how_to_unlock", "location_text", "game_edition", "pu
   "model_year", "style", "era", "security", "access", "tracker", "can_register", "sell_price_stolen", "standout_set", "moddable"];
 const GARAGE = [["owned", "Possédé", CircleCheck], ["wanted", "Recherché", SearchIcon], ["favorite", "Favori", Heart], ["lost", "Perdu", Ban]] as const;
 
+const BODY_FR: [RegExp, string][] = [[/(\d)-door/gi, "$1 portes"], [/coup[eé]/gi, "coupé"], [/sedan|saloon/gi, "berline"],
+  [/convertible|cabriolet/gi, "cabriolet"], [/roadster/gi, "roadster"], [/hatchback/gi, "compacte"], [/station wagon|estate/gi, "break"],
+  [/pickup truck|pick-up/gi, "pick-up"], [/motorcycle/gi, "moto"], [/van/gi, "fourgon"], [/truck/gi, "camion"], [/targa/gi, "targa"]];
+
 function fmt(k: string, v: unknown) {
+  if (k === "body_style" && typeof v === "string") return BODY_FR.reduce((t, [rx, fr]) => t.replace(rx, fr), v).replace(/\s+/g, " ");
   if (k === "drivetrain" && typeof v === "string") return DRIVETRAIN_FR[v] ?? v;
   if ((k === "price" || k === "sell_price_stolen") && typeof v === "number") return `${v.toLocaleString("fr-FR")} $`;
   if (v === "Yes") return "Oui"; if (v === "No") return "Non";

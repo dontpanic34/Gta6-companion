@@ -66,3 +66,16 @@ def test_missions_are_gated_by_chapter():
     assert p["name"] == "Prologue" and p["content"] == []          # description = niveau 3, masquée
     spoiler.set_progress(c, Progress(chapter=2))
     assert spoiler.get_entity(c, "mission:trahison-canari")["name"] == "Trahison CANARI"
+
+
+def test_texts_citing_protected_characters_are_hidden():
+    from companion import spoiler
+    c = db.connect()
+    importer.import_missions(c, gtawiki.parse_missions(MISSIONS))
+    importer.import_items(c, [ParsedItem("trotter", "u", "vehicle", "Trotter", {"class": "Sedans"})])
+    c.execute("INSERT INTO claim(entity_id,field,value_json,value_kind,source_id,status,spoiler_status) VALUES "
+              "('vehicle:trotter:std','description_en','\"Driven by Donneur CANARI in a cutscene.\"','community','manual','probable','evaluated')")
+    c.commit()
+    importer.protect_story_names(c)
+    d = spoiler.get_entity(c, "vehicle:trotter:std")
+    assert all(x["field"] != "description_en" for x in d["claims"])
