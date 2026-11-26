@@ -103,3 +103,7 @@ STORY_EN = re.compile(r"\b(mission|chapter|story|storyline|ending|betray|dies|de
 
 def descriptive_status(text: str) -> str:
     return "unknown" if STORY_EN.search(text) or NARRATIVE_HINTS.search(text) or FR_NARRATIVE.search(text) else "evaluated"
+
+
+# Masqué par défaut (choix du joueur) : sauts, loisirs, petits collectibles. Proposé seulement sur demande.
+HIDDEN_DEFAULT = re.compile(r"saut|sous le pont|rase-mottes|basket|pêche|arcade|billard|golf|salle de sport|méditation|magazine|flamant", re.I)

@@ -132,6 +132,8 @@ class Assistant:
                 continue
             if not classify.is_poi(r["category"]):
                 continue
+            if not family and classify.HIDDEN_DEFAULT.search(r["category"] or ""):
+                continue                      # sauts / loisirs : seulement si le joueur les demande
             d = ((r["x"] - loc["x"]) ** 2 + (r["y"] - loc["y"]) ** 2) ** 0.5
             if d <= radius:
                 near.append((d, r))

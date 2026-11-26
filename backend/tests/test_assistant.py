@@ -8,7 +8,8 @@ from tests.test_gta6map import CATEGORY, SECRET
 
 def setup():
     c = db.connect()
-    importer.import_map_locations(c, gta6map.parse_category("https://gta6map.city/fr/locations/stunt-jump/", CATEGORY))
+    importer.import_map_locations(c, gta6map.parse_category("https://gta6map.city/fr/locations/safe/",
+                                  CATEGORY.replace('"name":"Saut spectaculaire"', '"name":"Coffre-fort"')))
     importer.import_secrets(c, [gta6map.parse_secret("https://gta6map.city/fr/secrets/x/", SECRET.replace("Mariana County", "Vice City"))])
     importer.import_items(c, [
         ParsedItem("futo", "u", "vehicle", "Karin Futo", {"class": "Sports", "speed": 6, "acceleration": 7.5, "handling_road": 8, "handling_offroad": 5}),

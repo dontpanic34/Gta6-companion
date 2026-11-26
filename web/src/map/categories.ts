@@ -2,16 +2,19 @@ import { icons } from "lucide";
 
 /** Familles de lieux : couleur + pictogramme Lucide (ISC), comme les pastilles des cartes de référence. */
 type IconName = keyof typeof icons;
-export interface Family { id: string; label: string; color: string; icon: IconName; match: RegExp }
+export interface Family { id: string; label: string; color: string; icon: IconName; match: RegExp; hidden?: boolean }
 
 export const FAMILIES: Family[] = [
   { id: "secrets", label: "Secrets", color: "#ff3d8b", icon: "Sparkles", match: /easter|myst|créature|rencontre|référence|caméo|lieux cachés|curiosit|astuce|sculpture|monument|secret/i },
   { id: "collect", label: "Caches & objets", color: "#ffd166", icon: "Gem", match: /coffre|argent|cache|trésor|carte|flamant|magazine|playlist|mural|collect/i },
   { id: "vehicles", label: "Véhicules", color: "#2ee6d6", icon: "CarFront", match: /véhicule|vehicle/i },
   { id: "weapons", label: "Armes", color: "#ff7a1a", icon: "Crosshair", match: /arme|ammu|stand de tir|weapon/i },
-  { id: "stunts", label: "Sauts & courses", color: "#a78bfa", icon: "Flag", match: /saut|sous le pont|rase-mottes|course|raceway|speedway|mud club/i },
-  { id: "activities", label: "Activités", color: "#4ade80", icon: "Trophy", match: /activit|basket|pêche|arcade|billard|golf|salle de sport|méditation/i },
+  { id: "stunts", label: "Courses", color: "#a78bfa", icon: "Flag", match: /course|raceway|speedway|mud club/i },
+  { id: "activities", label: "Activités", color: "#4ade80", icon: "Trophy", match: /^activit/i },
   { id: "garages", label: "Garages & tuning", color: "#60a5fa", icon: "Wrench", match: /garage|tuning|pay 'n' spray/i },
+  // Masqué par défaut (le joueur ne s'en sert pas) : visible seulement si on le coche dans les filtres
+  { id: "extras", label: "Sauts, loisirs & bonus", color: "#94a3b8", icon: "EyeOff", hidden: true,
+    match: /saut|sous le pont|rase-mottes|basket|pêche|arcade|billard|golf|salle de sport|méditation|magazine|flamant/i },
 ];
 export const OTHER: Family = { id: "other", label: "Autres", color: "#cbd5e1", icon: "MapPin", match: /.*/ };
 export const ALL_FAMILIES = [...FAMILIES, OTHER];
@@ -21,16 +24,17 @@ export const ALL_FAMILIES = [...FAMILIES, OTHER];
 const CATEGORY_FAMILY: Record<string, string> = {
   "Easter eggs": "secrets", "Références et caméos": "secrets", "Lieux cachés": "secrets", "Créatures et rencontres": "secrets",
   "Mystères": "secrets", "Curiosité": "secrets", "Astuces et mécaniques": "secrets", "Sculpture": "secrets", "Monument": "secrets",
-  "Coffre-fort": "collect", "Argent et caches": "collect", "Cartes, flamants et plus": "collect", "Trésors et sous-marin": "collect",
-  "Magazine": "collect", "Playlist unique": "collect", "1010 Mural": "collect",
+  "Coffre-fort": "collect", "Argent et caches": "collect", "Trésors et sous-marin": "collect",
+  "Playlist unique": "collect", "1010 Mural": "collect",
+  "Cartes, flamants et plus": "extras", "Magazine": "extras",
   "Véhicule d’exception": "vehicles", "Véhicules rares": "vehicles", "Moses Vehicle": "vehicles",
   "Armes cachées et uniques": "weapons", "Ammu-Nation": "weapons", "Stand de tir": "weapons",
-  "Sous le pont": "stunts", "Saut spectaculaire": "stunts", "Vol en rase-mottes": "stunts", "Saut en base jump": "stunts",
+  "Sous le pont": "extras", "Saut spectaculaire": "extras", "Vol en rase-mottes": "extras", "Saut en base jump": "extras",
   "Défi de course": "stunts", "Thrillbilly Mud Club": "stunts", "Gellhorn Raceway": "stunts", "Ambrosia Raceway": "stunts",
   "Hamlet Boone Speedway": "stunts", "Intro aux courses": "stunts",
-  "Activités": "activities", "Panier de basket": "activities", "Spot de pêche": "activities", "Borne d’arcade": "activities",
-  "Billard": "activities", "Mini-golf": "activities", "Terrain de golf": "activities", "Salle de sport": "activities",
-  "Lieux de méditation": "activities",
+  "Activités": "activities",
+  "Panier de basket": "extras", "Spot de pêche": "extras", "Borne d’arcade": "extras", "Billard": "extras",
+  "Mini-golf": "extras", "Terrain de golf": "extras", "Salle de sport": "extras", "Lieux de méditation": "extras",
   "Pay 'n' Spray": "garages", "Garage de tuning": "garages", "Garage à vendre": "garages", "Garage": "garages",
 };
 
@@ -116,9 +120,9 @@ const CATEGORY_IMG: Record<string, number> = {
   "Saut spectaculaire": 0, "Sous le pont": 1, "Vol en rase-mottes": 2, "Saut en base jump": 3,
   "Défi de course": 4, "Thrillbilly Mud Club": 4, "Gellhorn Raceway": 4, "Ambrosia Raceway": 4, "Hamlet Boone Speedway": 4, "Intro aux courses": 4,
   "Coffre-fort": 5, "Argent et caches": 6, "Cartes, flamants et plus": 8, "Trésors et sous-marin": 9, "Magazine": 10, "Playlist unique": 11,
-  "Véhicules rares": 12, "Véhicule d’exception": 13, "Moses Vehicle": 13,
-  "Armes cachées et uniques": 14, "Ammu-Nation": 14, "Stand de tir": 16,
-  "Easter eggs": 17, "Mystères": 18, "Créatures et rencontres": 19, "Lieux cachés": 20, "Activités": 21,
+  "Véhicules rares": 41, "Véhicule d’exception": 40, "Moses Vehicle": 41,       // or = exception, bleu néon = rare
+  "Armes cachées et uniques": 42, "Ammu-Nation": 42, "Stand de tir": 16,
+  "Easter eggs": 17, "Mystères": 18, "Créatures et rencontres": 19, "Lieux cachés": 20, "Activités": 15,
   "Panier de basket": 22, "Spot de pêche": 23, "Borne d’arcade": 24, "Billard": 25, "Mini-golf": 26, "Terrain de golf": 26,
   "Salle de sport": 27, "Lieux de méditation": 28, "Garage de tuning": 29, "Pay 'n' Spray": 30, "Garage": 31, "Garage à vendre": 31,
   "Curiosité": 33, "Astuces et mécaniques": 34, "Sculpture": 36, "Monument": 36, "Références et caméos": 37, "1010 Mural": 38,

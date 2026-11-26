@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 const mod = await import(process.argv[2]);
 const cats = JSON.parse(readFileSync(process.argv[3], "utf8"));   // [[catégorie, estSecret, nb], …]
 const EXPECT = { "Véhicules rares": "vehicles", "Armes cachées et uniques": "weapons", "Argent et caches": "collect",
-  "Activités": "activities", "Sous le pont": "stunts", "Lieux cachés": "secrets", "Garage": "garages", "Easter eggs": "secrets" };
+  "Activités": "activities", "Sous le pont": "extras", "Saut spectaculaire": "extras", "Billard": "extras", "Défi de course": "stunts", "Lieux cachés": "secrets", "Garage": "garages", "Easter eggs": "secrets" };
 let fail = 0;
 for (const [cat, secret] of cats) {
   const f = mod.familyOf(cat, secret);

@@ -65,8 +65,9 @@ export default function MapPage() {
   useEffect(() => {
     if (!el.current || map.current) return;
     const m = L.map(el.current, {
-      crs: L.CRS.Simple, zoomControl: false, minZoom: 1, maxZoom: 7, attributionControl: true,
-      maxBounds: TILE_BOUNDS.pad(0.1), maxBoundsViscosity: 0.8, zoomSnap: 0.25, preferCanvas: true,
+      crs: L.CRS.Simple, zoomControl: false, minZoom: 0, maxZoom: 7, attributionControl: true,
+      // bornes larges : on peut dézoomer jusqu'à voir toute la carte sans retour forcé
+      maxBounds: TILE_BOUNDS.pad(1.2), maxBoundsViscosity: 0.3, zoomSnap: 0.25, preferCanvas: true,
     });
     createTileLayer(getBaseUrl()).addTo(m);
     const fx = sp.get("x"), fy = sp.get("y");
@@ -89,7 +90,9 @@ export default function MapPage() {
   const filtered = useMemo(() => places.filter((p) => {
     if (p.x == null) return false;
     if (st.zone && p.region !== st.zone) return false;
-    if (st.families.length && !st.families.includes(familyOf(p.category, isSecret(p)).id)) return false;
+    const fam = familyOf(p.category, isSecret(p));
+    if (fam.hidden && !st.families.includes(fam.id)) return false;          // masqué par défaut
+    if (st.families.filter((f) => f !== "extras").length && !st.families.includes(fam.id)) return false;
     if (st.hideDone && (p.status === "done" || p.status === "discovered")) return false;
     return matches(p);
   }), [places, st.families, st.hideDone, st.zone, query]);
@@ -230,7 +233,7 @@ export default function MapPage() {
               {st.zone
                 ? <button className="chip on" onClick={() => setSt((s) => ({ ...s, zone: null }))}><MapPinned size={14} /> {st.zone} <X size={14} /></button>
                 : <button className="chip" onClick={() => setFilters(true)}><MapPinned size={14} /> Zone</button>}
-              {ALL_FAMILIES.filter((f) => famCount[f.id]).map((f) => (
+              {ALL_FAMILIES.filter((f) => famCount[f.id] && !f.hidden).map((f) => (
                 <button key={f.id} className={`chip ${st.families.includes(f.id) ? "on" : ""}`} onClick={() => toggleFam(f.id)}>
                   <FamIcon f={f} /> {f.label}
                 </button>
@@ -336,7 +339,7 @@ export default function MapPage() {
             {ALL_FAMILIES.filter((f) => famCount[f.id]).map((f) => (
               <button key={f.id} className={`famtile ${st.families.includes(f.id) ? "on" : ""}`} onClick={() => toggleFam(f.id)}>
                 <span className="famicon" style={{ background: f.color }}><FamIcon f={f} size={18} color="#0d0b14" /></span>
-                <span>{f.label}</span><span className="muted small">{famCount[f.id]}</span>
+                <span>{f.label}{f.hidden && <span className="small muted" style={{ display: "block" }}>masqué par défaut</span>}</span><span className="muted small">{famCount[f.id]}</span>
               </button>
             ))}
           </div>

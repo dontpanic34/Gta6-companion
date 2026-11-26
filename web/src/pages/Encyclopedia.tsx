@@ -90,7 +90,7 @@ export default function Encyclopedia() {
       <div className="cat-bottom">
         {tab === "secrets" && (
           <div className="chiprow">
-            {ALL_FAMILIES.filter((f) => famCount[f.id]).map((f) => (
+            {ALL_FAMILIES.filter((f) => famCount[f.id] && !f.hidden).map((f) => (
               <button key={f.id} className={`chip ${fam === f.id ? "on" : ""}`} onClick={() => setFam(fam === f.id ? null : f.id)}>
                 <FamIcon f={f} size={14} /> {f.label} <span className="muted small">{famCount[f.id]}</span></button>
             ))}
