@@ -22,6 +22,7 @@ SOURCES = [
     ("gtacity", "GTACity", "https://gtacity.gg", "on_demand", 70),
     ("gtadb_landmarks", "GTA VI Landmarks (CC BY 4.0)", "https://map.gtadb.org", "full_sync", 75),
     ("gtawiki", "GTA Wiki (CC BY-NC-SA 3.0)", "https://gta.wiki", "full_sync", 65),
+    ("gtatown", "GTA Town (CC BY 4.0)", "https://gtatown.com", "full_sync", 80),
     ("manual", "Saisie personnelle", None, "full_sync", 90),
 ]
 
@@ -536,3 +537,191 @@ def apply_missables(conn: sqlite3.Connection) -> int:
             for i in items:
                 conn.execute("UPDATE entity SET missable=1 WHERE id=?", (i,))
     return sum(len(v) for v in links.values())
+
+
+# --------------------------------------------------------------------------- GTA Town (CC BY 4.0)
+def _chapter_of(label: str | None):
+    m = re.search(r"Chapter (\d+)", label or "")
+    return int(m.group(1)) if m else None
+
+
+def import_gtatown(conn: sqlite3.Connection, data: dict) -> dict:
+    """Fusionne les exports GTA Town dans la base existante, sans doublon :
+    - véhicules / armes : rattachés à la fiche existante (même nom), sinon fiche créée ;
+    - missions : même identifiant que GTA Wiki (titre), porte de chapitre ;
+    - repères de carte : un point à < 45 u. d'un point existant de même catégorie (ou même nom)
+      devient une confirmation de ce point, pas un nouveau marqueur.
+    Les données personnelles (statuts, notes, progression) sont dans d'autres tables : jamais touchées."""
+    from .connectors import gtatown as gt
+    from .assistant import best_match
+    ensure_sources(conn)
+    rep = ImportReport()
+    stats = {"vehicles_linked": 0, "vehicles_new": 0, "weapons_linked": 0, "weapons_new": 0,
+             "missions": 0, "points_merged": 0, "points_new": 0, "reference": 0}
+    S = gt.SOURCE_ID
+
+    def catalog_entry(kind, e, fields):
+        cands = [{"id": r[0], "name": r[1]} for r in conn.execute(
+            "SELECT id, canonical_name FROM entity WHERE kind=?", (f"{kind}_variant",))]
+        name = e["name"]
+        full = name if not e.get("manufacturer") or e["manufacturer"] in name else f"{e['manufacturer']} {name}"
+        m = _year_match(full, cands, used) or best_match(full, [c for c in cands if c["id"] not in used], strict=True) \
+            or best_match(name, [c for c in cands if c["id"] not in used], strict=True)
+        if m:
+            used.add(m["id"])
+            stats[f"{kind}s_linked"] += 1
+            vid = m["id"]
+        else:
+            stats[f"{kind}s_new"] += 1
+            pi = ParsedItem(slug=_slugify(full), url=e["url"], kind=kind, name=full,
+                            fields={k: fields[k] for k in ("manufacturer", "class") if fields.get(k)}, images=[])
+            import_items(conn, [pi], S)
+            vid = f"{kind}:{pi.slug}:std"
+            if e.get("spoiler"):   # véhicule/arme lié à l'histoire selon la source : nom masqué
+                conn.execute("UPDATE entity SET name_status='unknown' WHERE id=?", (vid,))
+        with conn:
+            for k, v in fields.items():
+                if v is None or v == "":
+                    continue
+                if k in gt_TEXT:
+                    st = classify.descriptive_status(v) if k == "description_en" else classify.field_spoiler_status("how_to_unlock", v)
+                    if e.get("spoiler"):
+                        st = "unknown"
+                    _record_claim_raw(conn, vid, k, v, S, e["url"], st, rep)
+                else:
+                    _record_claim(conn, vid, k, v, S, e["url"], rep)
+        return vid
+
+    gt_TEXT = {"description_en", "how_to_unlock_en"}
+    used: set[str] = set()   # une fiche existante ne reçoit qu'une seule ligne GTA Town
+    for e in data.get("vehicles", {}).get("entries", []):
+        cls = e.get("class") or ""
+        standout = cls[len("Standout: "):] if cls.startswith("Standout: ") else None
+        catalog_entry("vehicle", e, {
+            "manufacturer": e.get("manufacturer"), "class": None if standout else cls or None,
+            "standout_set": standout, "vehicle_type": gt.VEHICLE_TYPE_FR.get(e.get("type"), e.get("type")),
+            "speed": e.get("speed"), "acceleration": e.get("acceleration"), "handling_road": e.get("handling"),
+            "handling_offroad": e.get("offroad"), "strength": e.get("strength"),
+            "top_speed_kmh": round(e["top_speed_mph"] * 1.609) if e.get("top_speed_mph") else None,
+            "seats": e.get("seats"), "drivetrain": e.get("drivetrain"), "price": e.get("price"),
+            "based_on": e.get("real_life") or None, "game_edition": e.get("edition"),
+            "description_en": e.get("summary")})
+    for e in data.get("weapons", {}).get("entries", []):
+        catalog_entry("weapon", e, {
+            "manufacturer": e.get("manufacturer"), "class": e.get("class"), "damage": e.get("damage"),
+            "fire_rate": e.get("fire_rate"), "accuracy": e.get("accuracy"), "range": e.get("range"),
+            "clip_size": e.get("clip_size"), "price": e.get("price"), "attachments": e.get("attachments") or None,
+            "based_on": e.get("real_life") or None, "game_edition": e.get("edition"),
+            "how_to_unlock_en": e.get("unlock"), "description_en": e.get("summary")})
+    reclassify_catalog_names(conn)
+
+    # Missions : porte de chapitre (nom visible une fois le chapitre atteint), résumé en niveau 3.
+    ms = []
+    for e in data.get("missions", {}).get("entries", []):
+        lab = e.get("chapter") or ""
+        side = lab.startswith("Side")
+        giver = lab.split(" - ", 1)[1] if side and " - " in lab else None
+        ch = _chapter_of(lab)
+        title = re.sub(r":\s*.*", "", lab.replace("Side: ", "")).strip() if ch else None
+        ms.append({"title": e["name"], "chapter": ch, "chapter_title": lab.split(": ", 2)[-1].split(" (")[0].split(" - ")[0] if ch else None,
+                   "kind": "side_mission" if side else "mission", "giver": giver, "url": e["url"],
+                   "description": e.get("summary")})
+        _ = title
+    r = import_missions(conn, ms, S)
+    stats["missions"] = len(ms)
+    with conn:
+        for e in data.get("missions", {}).get("entries", []):
+            _record_claim_raw(conn, f"mission:{_slugify(e['name'])}", "order", e.get("order"), S, e["url"], "evaluated", rep)
+
+    # Repères de carte
+    existing = [(r[0], r[1], r[2], r[3], gazetteer_norm(r[4])) for r in conn.execute(
+        "SELECT p.entity_id, p.x, p.y, e.category, e.canonical_name FROM location_point p JOIN entity e ON e.id=p.entity_id")]
+    grid: dict[tuple[int, int], list] = {}
+    for t in existing:
+        grid.setdefault((int(t[1] // 100), int(t[2] // 100)), []).append(t)
+
+    def near(x, y, cat, nname):
+        gx, gy = int(x // 100), int(y // 100)
+        best = None
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                for t in grid.get((gx + dx, gy + dy), []):
+                    d = ((t[1] - x) ** 2 + (t[2] - y) ** 2) ** .5
+                    if d < 45 and (t[3] == cat or (nname and t[4] == nname)) and (best is None or d < best[0]):
+                        best = (d, t[0])
+        return best[1] if best else None
+
+    rows = [(e, gt.collectible_category(e)) for e in data.get("collectibles", {}).get("entries", [])]
+    rows += [(e, gt.LOCATION_CAT[e["category"]]) for e in data.get("locations", {}).get("entries", [])
+             if e.get("category") in gt.LOCATION_CAT]
+    with conn:
+        for e, cat in rows:
+            xy = gt.to_game(e.get("map_x"), e.get("map_y"))
+            if not xy:
+                continue
+            nname = gazetteer_norm(e["name"])
+            hit = near(xy[0], xy[1], cat, nname)
+            if hit:
+                stats["points_merged"] += 1
+                _record_claim_raw(conn, hit, "confirmed_by", "gtatown", S, e["url"], "evaluated", rep)
+                continue
+            eid = f"location:gtatown-{e['slug']}"
+            if not conn.execute("SELECT 1 FROM entity WHERE id=?", (eid,)).fetchone():
+                st = classify.category_status(cat)
+                conn.execute("INSERT INTO entity(id,kind,canonical_name,spoiler_status,name_status,category,region_label,reliability) "
+                             "VALUES (?,?,?,?,?,?,?,?)", (eid, "location", e["name"], st,
+                                                          "safe" if st == "evaluated" else "unknown", cat,
+                                                          e.get("area") or e.get("county"), "probable"))
+                conn.execute("INSERT INTO location_point(entity_id,x,y,precision) VALUES (?,?,?,?)", (eid, xy[0], xy[1], "exact"))
+                stats["points_new"] += 1
+                t = (eid, xy[0], xy[1], cat, nname)
+                grid.setdefault((int(xy[0] // 100), int(xy[1] // 100)), []).append(t)
+            for k in ("set", "number", "county"):
+                if e.get(k) not in (None, ""):
+                    _record_claim_raw(conn, eid, k, e[k], S, e["url"], "evaluated", rep)
+
+    # Fiches de référence : triches, trophées, défis
+    with conn:
+        for ds, kind in (("cheats", "cheat"), ("trophies", "trophy"), ("challenges", "challenge")):
+            for e in data.get(ds, {}).get("entries", []):
+                body = {k: v for k, v in e.items() if k not in ("slug", "name", "url", "spoiler")}
+                conn.execute("INSERT INTO reference_item(id,kind,name,data_json,spoiler,source_id,source_url) VALUES (?,?,?,?,?,?,?) "
+                             "ON CONFLICT(id) DO UPDATE SET name=excluded.name, data_json=excluded.data_json, spoiler=excluded.spoiler, "
+                             "source_url=excluded.source_url, updated_at=datetime('now') WHERE data_json<>excluded.data_json OR name<>excluded.name",
+                             (f"{kind}:{e['slug']}", kind, e["name"], json.dumps(body, ensure_ascii=False), int(bool(e.get("spoiler"))), S, e["url"]))
+                stats["reference"] += 1
+    stats["changed"] = len(rep.changed) + len(r.changed)
+    stats["quarantined"] = len(rep.quarantined)
+    return stats
+
+
+_YEAR = re.compile(r"^'(\d\d)\s+|\((?:19|20)(\d\d)\)|'(\d\d)\b")
+
+
+def _split_year(name: str):
+    yrs = [g for m in _YEAR.finditer(name) for g in m.groups() if g]
+    return gazetteer_norm(_YEAR.sub(" ", name)), (yrs[0] if yrs else None)
+
+
+def _year_match(name: str, cands: list[dict], used: set) -> dict | None:
+    """« '65 Vapid Dominator » ↔ « Vapid Dominator (1965) » : même nom sans l'année, et année
+    identique si les deux en ont une (deux millésimes = deux fiches distinctes)."""
+    base, yr = _split_year(name)
+    best = None
+    for c in cands:
+        if c["id"] in used:
+            continue
+        cb, cy = _split_year(c["name"])
+        if cb != base:
+            continue
+        if yr and cy and yr != cy:
+            continue
+        score = 2 if yr == cy else 1
+        if not best or score > best[0]:
+            best = (score, c)
+    return best[1] if best else None
+
+
+def gazetteer_norm(s):
+    from .gazetteer import norm
+    return norm(s or "")

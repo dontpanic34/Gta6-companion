@@ -15,7 +15,7 @@ from datetime import datetime
 from pathlib import Path
 
 from . import db, importer, spoiler
-from .connectors import gta6map, gtabase, gtawiki
+from .connectors import gta6map, gtabase, gtatown, gtawiki
 from .http import PoliteClient
 
 log = logging.getLogger("sync")
@@ -132,11 +132,20 @@ def sync_gtawiki(conn, client: PoliteClient, kinds: set[str], limit: int | None)
             "created": len(rep.created), "changed": rep.changed, "quarantined": rep.quarantined}
 
 
+def sync_gtatown(conn, client: PoliteClient) -> dict:
+    """Exports CC BY 4.0 : 8 fichiers, au plus une lecture par jour (le cache sert entre-temps)."""
+    data = gtatown.fetch_all(client)
+    stats = importer.import_gtatown(conn, data)
+    spoiler.reindex(conn)
+    return {"source": "gtatown", **stats, "created": stats["vehicles_new"] + stats["weapons_new"] + stats["points_new"],
+            "changed": [], "quarantined": [], "errors": []}
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--db", default="data/companion.db")
     ap.add_argument("--cache", default="data/http-cache")
-    ap.add_argument("--source", action="append", choices=["gtabase", "gta6map", "gtawiki"])
+    ap.add_argument("--source", action="append", choices=["gtatown", "gtabase", "gta6map", "gtawiki"])
     ap.add_argument("--kind", action="append", choices=["vehicle", "weapon"])
     ap.add_argument("--limit", type=int)
     ap.add_argument("--interval", type=float, default=3.0)
@@ -147,11 +156,12 @@ def main() -> None:
     conn = db.connect(a.db)
     client = PoliteClient(a.cache, min_interval=a.interval)
     Path(a.report_dir).mkdir(parents=True, exist_ok=True)
-    sources = a.source or ["gtabase", "gta6map", "gtawiki"]
+    sources = a.source or ["gtatown", "gtabase", "gta6map", "gtawiki"]
     for src in sources:
         try:  # une source en échec n'empêche pas les autres
             kinds = set(a.kind or ["vehicle", "weapon"])
-            report = (sync_gtabase(conn, client, kinds, a.limit) if src == "gtabase"
+            report = (sync_gtatown(conn, client) if src == "gtatown"
+                      else sync_gtabase(conn, client, kinds, a.limit) if src == "gtabase"
                       else sync_gtawiki(conn, client, kinds, a.limit) if src == "gtawiki"
                       else sync_gta6map(conn, client, a.limit))
         except Exception as e:

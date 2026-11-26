@@ -120,6 +120,8 @@ export const api = {
   setMission: (id: string, value: boolean) => req<ProgressOptions>(`/api/progress/mission/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify({ value }) }),
   setCharacter: (id: string, value: boolean) => req<ProgressOptions>(`/api/progress/character/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify({ value }) }),
   news: (days: number) => req<News>(`/api/news?days=${days}`),
+  reference: (kind: "cheat" | "trophy" | "challenge") =>
+    req<{ id: string; name: string; data: Record<string, any>; spoiler: boolean; url: string }[]>(`/api/reference/${kind}`),
   zones: () => req<{ name: string; x: number; y: number; tier: number }[]>("/api/zones"),
   garage: () => req<{ id: string; name: string; status: string }[]>("/api/garage"),
   setStatus: (id: string, status: string) => req(`/api/status/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify({ status }) }),
@@ -135,7 +137,8 @@ export const FIELD_LABELS: Record<string, string> = {
   gears: "Rapports", weight_kg: "Masse (kg)", model_year: "Année", based_on: "Inspiré de",
   price: "Prix", sell_price_stolen: "Revente (volé)", style: "Style", era: "Époque",
   security: "Sécurité", access: "Accès", tracker: "Traceur", can_register: "Immatriculable",
-  standout_set: "Collection", specialist: "Spécialiste", body_condition: "État",
+  standout_set: "Série d’exception", top_speed_kmh: "Vitesse max mesurée (km/h)", vehicle_type: "Type",
+  clip_size: "Chargeur", attachments: "Accessoires", fire_rate: "Cadence", order: "Ordre", county: "Comté", set: "Série", number: "N°", specialist: "Spécialiste", body_condition: "État",
   game_edition: "Édition", body_style: "Carrosserie", capacity: "Capacité", purchase_from: "Achat", moddable: "Personnalisable",
   ammo_upgrade: "Amélioration munitions", ...{ damage: "Dégâts", accuracy: "Précision", weapon_handling: "Maniabilité", range: "Portée" }, how_to_unlock: "Déblocage", location_text: "Emplacement",
   ...STAT_LABELS,

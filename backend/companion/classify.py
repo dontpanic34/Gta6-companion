@@ -15,6 +15,7 @@ SAFE_FIELDS = {
     "can_register", "standout_set", "specialist", "body_condition", "game_edition",
     "damage", "fire_rate", "range", "accuracy", "recoil", "capacity", "base_model",
     "weapon_handling", "purchase_from", "moddable", "ammo_upgrade", "body_style", "variants_list",
+    "top_speed_kmh", "vehicle_type", "clip_size", "attachments",
 }
 
 # Champs textuels : auto-évalués seulement si le texte est « sûr ».
@@ -86,7 +87,7 @@ NON_POI = re.compile(
     r"arrêt de bus|^gare$|ferry|distributeur|borne de recharge|street food|fast-food|cafés|^bar$|^club$|alcool|"
     r"supérette|électronique|station-service|souvenirs|vêtements|tenues|décontracté|friperie|chaussures|coiffure|"
     r"tatouage|prêts|lavage|location|troc|delights|hit 'n' run|animal crackers|san4san|kolt|guardia|ptt youngin|"
-    r"kingfishers|^m7$|polilla|nineinine|top fun drones|bus", re.I)
+    r"kingfishers|^m7$|^restaurant$|^boutique$|^hôtel$|polilla|nineinine|top fun drones|bus", re.I)
 
 
 def is_poi(category: str | None) -> bool:

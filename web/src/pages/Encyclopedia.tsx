@@ -5,7 +5,12 @@ import { api, entityLink, Place, ProgressOptions } from "../api";
 import { ALL_FAMILIES, categoryStyle, familyOf } from "../map/categories";
 import { FamIcon } from "./MapPage";
 
-type Tab = "missions" | "secrets";
+type Tab = "missions" | "secrets" | "cheat" | "trophy" | "challenge";
+type Ref = { id: string; name: string; data: Record<string, any>; spoiler: boolean; url: string };
+const REF_TABS: [Tab, string][] = [["cheat", "Triches"], ["trophy", "Trophées"], ["challenge", "Défis"]];
+const CHEAT_CAT: Record<string, string> = { vehicles: "Véhicule", weapons: "Armes", player: "Joueur", vehicle: "Véhicule", weapon: "Armes", world: "Monde", spawn: "Apparition" };
+const BTN: Record<string, string> = { up: "↑", down: "↓", left: "←", right: "→" };
+const doneRef = (): Record<string, boolean> => { try { return JSON.parse(localStorage.getItem("ref_done") ?? "{}"); } catch { return {}; } };
 
 export default function Encyclopedia() {
   const nav = useNavigate();
@@ -15,6 +20,11 @@ export default function Encyclopedia() {
   const [q, setQ] = useState("");
   const [fam, setFam] = useState<string | null>(null);
   const [err, setErr] = useState("");
+  const [refs, setRefs] = useState<Ref[]>([]);
+  const [done, setDone] = useState(doneRef);
+  const [shown, setShown] = useState<Record<string, boolean>>({});
+  const toggleDone = (id: string) => { const n = { ...done, [id]: !done[id] }; setDone(n); try { localStorage.setItem("ref_done", JSON.stringify(n)); } catch { /* ignore */ } };
+  useEffect(() => { if (REF_TABS.some(([t]) => t === tab)) api.reference(tab as "cheat").then(setRefs).catch(() => setRefs([])); }, [tab]);
 
   useEffect(() => { try { localStorage.setItem("enc_tab", tab); } catch { /* ignore */ } }, [tab]);
   useEffect(() => {
@@ -47,8 +57,7 @@ export default function Encyclopedia() {
       <div className="seg">
         <button className={tab === "missions" ? "on" : ""} onClick={() => setTab("missions")}>Missions</button>
         <button className={tab === "secrets" ? "on" : ""} onClick={() => setTab("secrets")}>Secrets</button>
-        <button onClick={() => nav("/vehicules")}>Véhicules</button>
-        <button onClick={() => nav("/armes")}>Armes</button>
+        {REF_TABS.map(([t, l]) => <button key={t} className={tab === t ? "on" : ""} onClick={() => setTab(t)}>{l}</button>)}
       </div>
 
       <div className="cat-list">
@@ -70,6 +79,33 @@ export default function Encyclopedia() {
           ))}
           {hiddenChapters > 0 && <p className="small muted" style={{ textAlign: "center", padding: 16 }}><Lock size={13} style={{ verticalAlign: "-2px" }} /> {hiddenChapters} chapitre(s) suivant(s) masqué(s). Avancez votre progression dans Réglages.</p>}
           {o && groups.length === 0 && <div className="empty">Aucune mission pour l'instant.</div>}
+        </>)}
+
+        {REF_TABS.some(([t]) => t === tab) && (<>
+          {tab === "trophy" && <h4 className="sheet-h">{refs.filter((r) => done[r.id]).length}/{refs.length} obtenus</h4>}
+          {refs.filter((r) => !needle || r.name.toLowerCase().includes(needle)).map((r) => {
+            const d = r.data, hide = r.spoiler && !shown[r.id];
+            const text = tab === "cheat" ? d.effect : tab === "trophy" ? d.description : d.requirement;
+            return (
+              <div key={r.id} className="vrow" style={{ alignItems: "flex-start" }}>
+                <div className="vinfo" style={{ whiteSpace: "normal" }}>
+                  <span className="title">{r.name}
+                    {tab === "cheat" && d.category && <span className="badge" style={{ marginLeft: 6 }}>{CHEAT_CAT[d.category] ?? d.category}</span>}
+                    {tab === "trophy" && <span className="badge" style={{ marginLeft: 6 }}>{d.grade}{d.gamerscore ? ` · ${d.gamerscore} G` : ""}</span>}
+                    {d.missable && <span className="badge warn" style={{ marginLeft: 6 }}>⚠ manquable</span>}</span>
+                  {hide ? <button className="chip" style={{ marginTop: 6 }} onClick={() => setShown({ ...shown, [r.id]: true })}><Lock size={13} /> Lié à l'histoire : afficher quand même</button>
+                    : <span className="small muted">{text}</span>}
+                  {tab === "cheat" && !hide && (<>
+                    {d.inputs && <span className="small" style={{ display: "block", marginTop: 4 }}>{d.hold ? `Maintenir ${d.hold.replace(/-/g, "/").replace(/;/g, " +")} · ` : ""}{String(d.inputs).split(";").map((b: string) => BTN[b.trim()] ?? b.trim().toUpperCase()).join(" ")}</span>}
+                    {d.phone_number && <span className="small" style={{ display: "block" }}>Téléphone : {d.phone_number}</span>}
+                    {d.disables_trophies && <span className="small muted" style={{ display: "block" }}>Désactive trophées et sauvegarde</span>}
+                  </>)}
+                </div>
+                {tab !== "cheat" && <button className={`selbtn ${done[r.id] ? "on" : ""}`} onClick={() => toggleDone(r.id)} aria-label="Fait"><Check size={18} opacity={done[r.id] ? 1 : 0.25} /></button>}
+              </div>
+            );
+          })}
+          <p className="small muted" style={{ textAlign: "center", padding: 12 }}>Source : gtatown.com (CC BY 4.0)</p>
         </>)}
 
         {tab === "secrets" && secrets.map((p) => {
@@ -98,7 +134,7 @@ export default function Encyclopedia() {
         )}
         <div className="searchbar">
           <Search size={18} className="muted" />
-          <input placeholder={tab === "missions" ? "Chercher une mission" : "Chercher un secret"} value={q} onChange={(e) => setQ(e.target.value)} />
+          <input placeholder={tab === "missions" ? "Chercher une mission" : tab === "secrets" ? "Chercher un secret" : "Chercher"} value={q} onChange={(e) => setQ(e.target.value)} />
           {q && <button className="iconbtn" onClick={() => setQ("")} aria-label="Effacer"><X size={18} /></button>}
         </div>
       </div>

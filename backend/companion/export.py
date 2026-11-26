@@ -58,6 +58,8 @@ def build(db_path: str) -> dict:
             "version": 3,
             "news": api.news(days=30, limit=200),
             "zones": api.zones(),
+            "reference": {k: api.reference(k) for k in ("cheat", "trophy", "challenge")},
+            "attribution": ["Données : gtatown.com (CC BY 4.0)", "Carte : gtadb.org (CC BY 4.0)", "GTA Wiki (CC BY-NC-SA 3.0)"],
             "story": story,
             "locked": locked,
             "vehicles": catalog.vehicles(c),

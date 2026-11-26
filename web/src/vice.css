@@ -55,7 +55,7 @@ h2, .sheet h2 { font-family: var(--display); font-weight: 400; font-size: 26px; 
 .checkrow .box { width: 26px; height: 26px; border-radius: 8px; border: 2px solid var(--line); display: grid; place-items: center; flex: none; }
 .checkrow.on .box { background: var(--teal); border-color: var(--teal); color: #140a24; }
 .checkrow.on { border-color: #2ee6d666; }
-.seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 0 12px 6px; }
+.seg { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; padding: 0 12px 6px; }
 .seg button { padding: 10px 4px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); font-family: var(--display); font-size: 16px; letter-spacing: .05em; }
 .seg button.on { background: var(--neon); color: #fff; border-color: transparent; }
 .home .prog { display: flex; align-items: center; gap: 12px; }

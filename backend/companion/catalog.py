@@ -78,7 +78,7 @@ def vehicles(conn: sqlite3.Connection, *, min_stats: dict[str, float] | None = N
              drivetrain: list[str] | None = None, classes: list[str] | None = None,
              exclude_classes: list[str] | None = None, variant_types: list[str] | None = None,
              weights: dict[str, float] | None = None, query: str | None = None,
-             limit: int = 500) -> list[dict]:
+             limit: int = 5000) -> list[dict]:
     rows = conn.execute("""
         SELECT v.id, v.display_name, vv.model_id, vv.variant_type, vm.manufacturer, vm.class
         FROM visible_entity v
@@ -126,6 +126,7 @@ def vehicles(conn: sqlite3.Connection, *, min_stats: dict[str, float] | None = N
             "class": cls, "image": media.get(r["id"]),
             "stats": {k: val(k) for k in STATS},
             "price": val("price"), "seats": val("seats"), "drivetrain": val("drivetrain"),
+            "top_speed_kmh": val("top_speed_kmh"), "vehicle_type": val("vehicle_type"), "standout_set": val("standout_set"),
             "score": score,
         })
     if weights:

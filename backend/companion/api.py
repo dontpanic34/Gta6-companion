@@ -113,6 +113,22 @@ TIER1 = {"Vice City", "Port Gellhorn", "Kelly County", "Mariana County", "Lummox
 ZONE_JUNK = ("près de", "endroit", "partout", "leonida", "?")
 
 
+@app.get("/api/reference/{kind}", dependencies=[Depends(auth)])
+def reference(kind: str):
+    """Triches, trophées, défis (GTA Town, CC BY 4.0). Les fiches marquées spoiler par la source
+    gardent leur nom mais leur texte est masqué tant qu'il n'est pas révélé."""
+    rows = conn().execute("SELECT r.id, r.name, r.data_json, r.spoiler, r.source_url, d.id IS NOT NULL "
+                          "FROM reference_item r LEFT JOIN reference_done d ON d.id=r.id WHERE r.kind=? ORDER BY r.name", (kind,))
+    return [{"id": r[0], "name": r[1], "data": json.loads(r[2]), "spoiler": bool(r[3]), "url": r[4], "done": bool(r[5])} for r in rows]
+
+
+@app.put("/api/reference/{rid:path}/done", dependencies=[Depends(auth)])
+def reference_done(rid: str, done: bool = Body(..., embed=True)):
+    with conn() as c:
+        c.execute("INSERT OR IGNORE INTO reference_done(id) VALUES (?)" if done else "DELETE FROM reference_done WHERE id=?", (rid,))
+    return {"ok": True}
+
+
 @app.get("/api/zones", dependencies=[Depends(auth)])
 def zones():
     from . import gazetteer

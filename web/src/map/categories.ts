@@ -35,6 +35,11 @@ const CATEGORY_FAMILY: Record<string, string> = {
   "Activités": "activities",
   "Panier de basket": "extras", "Spot de pêche": "extras", "Borne d’arcade": "extras", "Billard": "extras",
   "Mini-golf": "extras", "Terrain de golf": "extras", "Salle de sport": "extras", "Lieux de méditation": "extras",
+  "Carte à collectionner": "extras", "Flamant de cocaïne": "extras", "Objet à collectionner": "collect",
+  "Fragment de météorite": "collect", "Paquet caché": "collect", "Street art Ahol": "collect", "Caisse jaune": "collect",
+  "Message dans une bouteille": "collect", "Smash 'n' Grab": "collect", "Braquage de banque": "collect", "Activité illégale": "collect",
+  "Apparition de véhicule": "vehicles", "Véhicule gratuit": "vehicles",
+  "Loisirs": "activities", "Nature": "activities", "Hôtel": "activities",
   "Pay 'n' Spray": "garages", "Garage de tuning": "garages", "Garage à vendre": "garages", "Garage": "garages",
 };
 
