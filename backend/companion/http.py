@@ -64,6 +64,13 @@ class PoliteClient:
         with urllib.request.urlopen(req, timeout=30) as r:
             return r.read().decode("utf-8", "replace")
 
+    def cached_at(self, url: str) -> float | None:
+        """Date (epoch) de la dernière lecture en cache de cette URL, ou None."""
+        meta_p = self._paths(url)[1]
+        if not meta_p.exists():
+            return None
+        return json.loads(meta_p.read_text()).get("fetched")
+
     def get(self, url: str, *, max_age: float = 0) -> Response:
         """max_age (s) : réutilise le cache sans requête s'il est assez récent."""
         if not self.allowed(url):

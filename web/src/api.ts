@@ -79,7 +79,7 @@ const isNative = () => !!(window as any).Capacitor?.isNativePlatform?.();
 async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
   const method = (init.method ?? "GET").toUpperCase();
   const base = getBaseUrl();
-  // APK sans PC configuré : directement hors ligne
+  // APK pas (encore) connecté au PC : directement hors ligne (la recherche du PC tourne en arrière-plan)
   if (isNative() && !base) {
     return (method === "GET" ? offlineGet(path) : offlineWrite(path, init.body ? JSON.parse(String(init.body)) : null)) as Promise<T>;
   }

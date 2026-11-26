@@ -115,7 +115,7 @@ export default function VehicleDetailPage() {
             <div className="cardrow">
               {d.siblings.map((s) => (
                 <Link key={s.id} to={`${route}/${encodeURIComponent(s.id)}`} className="minicard">
-                  {s.image ? <img src={s.image} alt="" loading="lazy" referrerPolicy="no-referrer" /> : <div className="mc-ph" />}
+                  {s.image ? <img src={s.image} alt="" loading="lazy" referrerPolicy="no-referrer" onError={(e) => (e.currentTarget.style.visibility = "hidden")} /> : <div className="mc-ph" />}
                   <div className="title" style={{ fontSize: 13 }}>{s.name}</div>
                   <div className="small muted">{s.variant_type === "standard" ? "Modèle de base" : "Variante"}</div>
                 </Link>

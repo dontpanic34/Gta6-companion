@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowDownUp, Check, GitCompare, Plus, Search, SlidersHorizontal, X } from "lucide-react";
 import { api, DRIVETRAIN_FR, STAT_LABELS, VehicleSummary, WEAPON_STAT_LABELS, WeaponSummary } from "../api";
 import { classStyle } from "../map/categories";
+import { onBack } from "../back";
 import { FamIcon } from "./MapPage";
 
 type Kind = "vehicle" | "weapon";
@@ -23,11 +24,11 @@ const CONF = {
 
 const SHORT: Record<string, string> = { speed: "Vit", acceleration: "Acc", handling_road: "Man", handling_offroad: "TT", strength: "Sol", damage: "Dég", accuracy: "Préc", weapon_handling: "Man", range: "Port" };
 
-export function StatMini({ stats, keys }: { stats: Record<string, number | null>; keys: string[] }) {
+export function StatMini({ stats, keys, highlight }: { stats: Record<string, number | null>; keys: string[]; highlight?: string }) {
   return (
     <div className="statmini">
       {keys.slice(0, 4).map((k) => (
-        <div key={k}><span>{SHORT[k] ?? k}</span><div className="bar"><i style={{ width: `${((stats[k] ?? 0) / 10) * 100}%` }} /></div><b>{stats[k] ?? "—"}</b></div>
+        <div key={k} className={k === highlight ? "hl" : ""}><span>{SHORT[k] ?? k}</span><div className="bar"><i style={{ width: `${((stats[k] ?? 0) / 10) * 100}%` }} /></div><b>{stats[k] ?? "—"}</b></div>
       ))}
     </div>
   );
@@ -41,6 +42,7 @@ export default function Catalog({ kind }: { kind: Kind }) {
   const [err, setErr] = useState("");
   const [sheet, setSheet] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
+  useEffect(() => onBack(() => { if (sheet) { setSheet(false); return true; } return false; }), [sheet]);
   const [sort, setSort] = useState<string>(() => sp.get("sort") ?? (kind === "vehicle" ? "profile" : "damage"));
   const [weights, setWeights] = useState<Record<string, number>>({});
   useEffect(() => {
@@ -60,6 +62,7 @@ export default function Catalog({ kind }: { kind: Kind }) {
   const items = useMemo(() => {
     let l = (all ?? []).filter((v) => !q || v.name.toLowerCase().includes(q) || (v.class ?? "").toLowerCase().includes(q));
     const by = (k: string) => (a: Item, b: Item) => ((b.stats[k] ?? -1) as number) - ((a.stats[k] ?? -1) as number);
+    if (sort !== "name" && sort !== "profile" && sort !== "price") l = l.filter((v) => v.stats[sort] != null).concat(l.filter((v) => v.stats[sort] == null));
     if (sort === "name") l = [...l].sort((a, b) => a.name.localeCompare(b.name));
     else if (sort === "profile") {
       // score « mon style » calculé localement (stats inconnues ignorées, jamais estimées)
@@ -97,11 +100,22 @@ export default function Catalog({ kind }: { kind: Kind }) {
         <h1>{conf.title}</h1>
         <span className="muted small">{all ? `${items.length} / ${all.length}` : "…"}</span>
       </div>
+      <div className="rankbar">
+        <span className="small muted"><ArrowDownUp size={14} style={{ verticalAlign: "-2px" }} /> Classer par</span>
+        <div className="chiprow">
+          {conf.sorts.map(([k, l]) => (
+            <button key={k} className={`chip ${sort === k ? "on" : ""}`} onClick={() => setSort(k)}>{l}</button>))}
+        </div>
+      </div>
       <div className="cat-list">
         {err && <p className="notice">{err}</p>}
-        {all && items.length === 0 && <div className="empty">Aucun résultat avec ces filtres.</div>}
-        {items.map((v) => {
+        {all && items.length === 0 && (
+          <div className="empty">Aucun résultat avec ces filtres.<br />
+            <button className="btn" style={{ marginTop: 12 }} onClick={() => { setSp(new URLSearchParams(), { replace: true }); setSort(kind === "vehicle" ? "profile" : "damage"); }}>Tout effacer</button></div>
+        )}
+        {items.map((v, idx) => {
           const st = classStyle(v.class);
+          const ranked = sort !== "name";
           const on = selected.includes(v.id);
           return (
             <div key={v.id} className="vrow">
@@ -110,6 +124,7 @@ export default function Catalog({ kind }: { kind: Kind }) {
                   {v.image ? <img src={v.image} alt="" loading="lazy" referrerPolicy="no-referrer" onError={(e) => (e.currentTarget.style.display = "none")} />
                     : null}
                   <span className="vclass" style={{ background: st.color }}><FamIcon f={st} size={13} color="#0d0b14" /></span>
+                  {ranked && <span className="rank">#{idx + 1}</span>}
                 </div>
                 <div className="vinfo">
                   <div className="row" style={{ flexWrap: "nowrap", gap: 6 }}>
@@ -121,7 +136,7 @@ export default function Catalog({ kind }: { kind: Kind }) {
                     {v.price != null ? ` · ${v.price.toLocaleString("fr-FR")} $` : ""}
                     {"free_hint" in v && v.free_hint ? " · gratuite ?" : ""}
                   </div>
-                  <StatMini stats={v.stats} keys={statKeys} />
+                  <StatMini stats={v.stats} keys={statKeys} highlight={sort} />
                 </div>
               </Link>
               <button className={`selbtn ${on ? "on" : ""}`} onClick={() => toggleSel(v.id)} aria-label="Comparer">{on ? <Check size={18} /> : <Plus size={18} />}</button>
@@ -163,24 +178,11 @@ export default function Catalog({ kind }: { kind: Kind }) {
         <div className="scrim" onClick={() => setSheet(false)} />
         <div className="sheet">
           <div className="grabber" />
-          <div className="row"><h2 style={{ margin: 0 }}>Trier et filtrer</h2><span className="spacer" />
+          <div className="row"><h2 style={{ margin: 0 }}>Filtrer</h2><span className="spacer" />
             <button className="btn ghost small" onClick={() => { setSp(new URLSearchParams(), { replace: true }); setSort("name"); }}>Réinitialiser</button></div>
-          <h4 className="sheet-h"><ArrowDownUp size={14} /> Trier par</h4>
-          <div className="row">
-            {conf.sorts.map(([k, l]) => (kind === "vehicle" || k !== "profile") && (
-              <button key={k} className={`chip ${sort === k ? "on" : ""}`} onClick={() => setSort(k)}>{l}</button>))}
-          </div>
-          <h4 className="sheet-h">Minimum</h4>
+          <h4 className="sheet-h">Prix maximum</h4>
           <div className="filters">
-            {statKeys.map((k) => {
-              const key = kind === "weapon" && k === "weapon_handling" ? "min_handling" : `min_${k}`;
-              return (
-                <label className="slider" key={k}><span>{conf.labels[k]}</span>
-                  <input type="range" min={0} max={10} step={0.5} value={sp.get(key) ?? 0} onChange={(e) => set(key, e.target.value === "0" ? null : e.target.value)} />
-                  <span>{sp.get(key) ?? "—"}</span></label>
-              );
-            })}
-            <label className="slider"><span>Prix max.</span>
+            <label className="slider"><span>Jusqu'à</span>
               <input type="number" className="input" inputMode="numeric" placeholder="Illimité" value={sp.get("max_price") ?? ""} onChange={(e) => set("max_price", e.target.value)} /><span>$</span></label>
           </div>
           {kind === "vehicle" && (<>
@@ -189,7 +191,7 @@ export default function Catalog({ kind }: { kind: Kind }) {
             <h4 className="sheet-h">Places minimum</h4>
             <div className="row">{["2", "4", "6"].map((n) => <button key={n} className={`chip ${sp.get("seats_min") === n ? "on" : ""}`} onClick={() => set("seats_min", sp.get("seats_min") === n ? null : n)}>{n}+</button>)}</div>
             <h4 className="sheet-h">Variantes</h4>
-            <div className="row">{[["named", "Nommées"], ["unique", "Uniques"], ["secret", "Secrètes"], ["standard", "Standard"]].map(([k, l]) =>
+            <div className="row">{[["named", "Variantes"], ["standard", "Modèles de base"]].map(([k, l]) =>
               <button key={k} className={`chip ${sp.getAll("variant_type").includes(k) ? "on" : ""}`} onClick={() => toggleQuick("variant_type", k)}>{l}</button>)}</div>
           </>)}
           <div className="sheet-footer"><button className="btn wide" onClick={() => setSheet(false)}>Voir {items.length} résultats</button></div>

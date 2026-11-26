@@ -82,3 +82,27 @@ h2, .sheet h2 { font-family: var(--display); font-weight: 400; font-size: 26px; 
 .mk { width: 100%; height: 100%; align-items: center; justify-content: center; }
 .mk .pin3 { width: 100%; height: 100%; }
 .mk-label { top: 100%; margin-top: -2px; }
+.dotst { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex: none; }
+.dotst.ok { background: var(--teal); box-shadow: 0 0 8px var(--teal); }
+/* Bande opaque sous la barre d'état Android (l'heure ne chevauche plus le contenu) */
+.statusbar-bg { position: fixed; top: 0; left: 0; right: 0; height: var(--safe-top); z-index: 2000;
+  background: linear-gradient(180deg, #140a24 70%, #140a2400); pointer-events: none; }
+/* Bouton retour : sous la barre d'état, sur fond flouté, sans masquer le texte en défilement */
+.iconback { top: calc(8px + var(--safe-top)); z-index: 1500; background: #140a24e6; box-shadow: 0 4px 14px #0008; }
+.page:has(.iconback) h1 { padding-left: 56px; }
+.rankbar { display: grid; gap: 6px; padding: 0 12px 6px; }
+.rankbar .chiprow { margin: 0 -12px; padding: 0 12px 2px; }
+.rank { position: absolute; top: 6px; left: 6px; font-family: var(--display); font-size: 18px; letter-spacing: .03em; color: #fff;
+  background: #140a24cc; border: 1px solid #ff3d8b88; border-radius: 8px; padding: 0 7px; }
+.statmini > div.hl span, .statmini > div.hl b { color: var(--accent); font-weight: 800; }
+.statmini > div.hl .bar { height: 6px; }
+/* Jamais de défilement horizontal : les cartes tiennent dans la largeur de l'écran */
+html, body, .app, .catalog, .cat-list { overflow-x: hidden; max-width: 100vw; }
+.cat-list { grid-template-columns: minmax(0, 1fr); }
+.vrow { min-width: 0; max-width: 100%; }
+.vrow-main, .vinfo, .vinfo > .row { min-width: 0; overflow: hidden; }
+.vinfo .title { min-width: 0; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vinfo .badge { flex: none; }
+.statmini { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4px 12px; }
+.statmini > div { grid-template-columns: 26px minmax(0, 1fr) 24px; min-width: 0; }
+.vthumb { width: 96px; height: 68px; }

@@ -13,7 +13,8 @@ from pathlib import Path
 
 from typing import Any
 
-from fastapi import Body, Depends, FastAPI, Header, HTTPException, Query
+from fastapi import Body, Depends, FastAPI, Header, HTTPException, Query, Request
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -36,7 +37,20 @@ def conn():
     return c
 
 
-def auth(authorization: str | None = Header(default=None)):
+def _is_home(host: str | None) -> bool:
+    """Appareil du réseau local (Wi-Fi de la maison) ou de la machine elle-même."""
+    import ipaddress
+    try:
+        ip = ipaddress.ip_address(host or "")
+    except ValueError:
+        return False
+    return ip.is_private or ip.is_loopback
+
+
+def auth(request: Request, authorization: str | None = Header(default=None)):
+    # À la maison (même Wi-Fi) : pas de jeton. Ailleurs (ex. Tailscale) : jeton obligatoire.
+    if _is_home(request.client.host if request.client else None) and not str(request.client.host).startswith("100."):
+        return
     if TOKEN and not (authorization and secrets.compare_digest(authorization, f"Bearer {TOKEN}")):
         raise HTTPException(401, "Jeton invalide")
 
@@ -54,7 +68,16 @@ class StatusIn(BaseModel):
 
 @app.get("/api/health")
 def health():
-    return {"ok": True}
+    return {"ok": True, "app": "gta6-companion"}   # signature utilisée par la découverte automatique
+
+
+@app.get("/api/snapshot", dependencies=[Depends(auth)])
+def snapshot():
+    """Données de la nuit pour le téléphone (il les garde pour le hors ligne)."""
+    p = Path(__file__).resolve().parents[2] / "web" / "public" / "data" / "snapshot.json"
+    if not p.exists():
+        raise HTTPException(404, "Pas encore de données préparées (la mise à jour de nuit les crée).")
+    return FileResponse(p, media_type="application/json", headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/api/progress", dependencies=[Depends(auth)])

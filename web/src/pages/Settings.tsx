@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Check, ChevronLeft, Gamepad2, Minus, Plus, RefreshCw, ShieldCheck } from "lucide-react";
 import { api, getBaseUrl, getToken, ProgressOptions, setBaseUrl, setToken, XboxSummary } from "../api";
+import { autoConnect, dataUpdatedAt } from "../connect";
 
 export default function Settings() {
   const nav = useNavigate();
@@ -14,6 +15,9 @@ export default function Settings() {
   const [theme, setTheme] = useState(() => { try { return localStorage.getItem("theme") ?? "dark"; } catch { return "dark"; } });
 
   const load = () => api.progressOptions().then(setO).catch((e) => setMsg(e.message));
+  const [pc, setPc] = useState<{ base: string | null; msg: string }>((window as any).__pcState ?? { base: getBaseUrl() || null, msg: "" });
+  useEffect(() => { const f = () => setPc((window as any).__pcState); window.addEventListener("pcstate", f); return () => window.removeEventListener("pcstate", f); }, []);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   useEffect(() => { load(); api.xbox().then(setXb).catch(() => {}); }, []);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -90,10 +94,17 @@ export default function Settings() {
 
       <h2>Connexion au PC</h2>
       <div className="card filters">
-        <input className="input" placeholder="Adresse du PC (ex. http://100.64.0.5:8765)" value={base} onChange={(e) => setBase(e.target.value)} />
-        <input className="input" placeholder="Jeton d'accès" value={token} onChange={(e) => setTok(e.target.value)} />
-        <button className="btn" onClick={() => { setBaseUrl(base); setToken(token); setMsg("Connexion enregistrée"); load(); }}>Enregistrer</button>
-        <p className="small muted" style={{ margin: 0 }}>Sans PC, l'appli fonctionne hors ligne avec les données embarquées (sans assistant).</p>
+        <div className="row"><span className={`dotst ${pc.base ? "ok" : ""}`} />
+          <span>{pc.base ? `Connecté au PC (${pc.base.replace("http://", "")})` : (pc.msg || "Non connecté")}</span></div>
+        <p className="small muted" style={{ margin: 0 }}>À la maison, l'appli trouve le PC toute seule sur le Wi-Fi et récupère les données de la nuit.
+          {dataUpdatedAt() ? ` Dernières données reçues : ${new Date(dataUpdatedAt()!).toLocaleString("fr-FR")}.` : ""}</p>
+        <button className="btn" onClick={() => { setBaseUrl(""); autoConnect((st) => { (window as any).__pcState = st; setPc(st); }).then(() => load()); }}>Rechercher le PC</button>
+        <button className="linkbtn" onClick={() => setShowAdvanced(!showAdvanced)}>{showAdvanced ? "Masquer" : "Hors de chez moi (Tailscale)…"}</button>
+        {showAdvanced && (<>
+          <input className="input" placeholder="Adresse Tailscale du PC (ex. http://100.64.0.5:8765)" value={base} onChange={(e) => setBase(e.target.value)} />
+          <input className="input" placeholder="Jeton d'accès" value={token} onChange={(e) => setTok(e.target.value)} />
+          <button className="btn ghost" onClick={() => { setBaseUrl(base); setToken(token); setMsg("Connexion enregistrée"); load(); }}>Enregistrer</button>
+        </>)}
       </div>
 
       <h2>Apparence</h2>

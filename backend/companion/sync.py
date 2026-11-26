@@ -11,6 +11,7 @@ import logging
 import sys
 import re
 import time
+from datetime import datetime
 from pathlib import Path
 
 from . import db, importer, spoiler
@@ -21,12 +22,15 @@ log = logging.getLogger("sync")
 
 
 def sync_gtabase(conn, client: PoliteClient, kinds: set[str], limit: int | None) -> dict:
-    index = client.get(gtabase.SITEMAP_INDEX).text
+    index = client.get(gtabase.SITEMAP_INDEX, max_age=2 * 3600).text
     sub = [u for u in gtabase.parse_sitemap(index) if ".en-GB." in u]
     urls: list[str] = []
+    lastmods: dict[str, str] = {}
     for s in sub:
         try:
-            urls += gtabase.parse_sitemap(client.get(s, max_age=20 * 3600).text)
+            xml = client.get(s, max_age=2 * 3600).text
+            urls += gtabase.parse_sitemap(xml)
+            lastmods.update(gtabase.parse_sitemap_lastmod(xml))
         except Exception as e:  # une sous-carte en panne ne bloque pas les autres
             log.warning("Sitemap %s indisponible : %s", s, e)
     targets = [(k, u) for k, u in gtabase.item_urls(urls) if k in kinds]
@@ -37,7 +41,10 @@ def sync_gtabase(conn, client: PoliteClient, kinds: set[str], limit: int | None)
     parsed, errors, unchanged = [], [], 0
     for i, (kind, url) in enumerate(targets, 1):
         try:
-            r = client.get(url, max_age=20 * 3600)
+            # relecture seulement si la fiche a changé depuis la dernière lecture (date du sitemap)
+            seen, lm = client.cached_at(url), lastmods.get(url)
+            fresh = seen and lm and datetime.fromisoformat(lm.replace("Z", "+00:00")).timestamp() <= seen
+            r = client.get(url, max_age=10 ** 9 if fresh else 24 * 3600)
             parsed.append(gtabase.parse_item(url, r.text, kind))
             unchanged += (not r.changed)
         except Exception as e:
@@ -57,14 +64,14 @@ def sync_gta6map(conn, client: PoliteClient, limit: int | None) -> dict:
     errors: list = []
     # 1) Lieux issus de la carte du jeu
     locs = []
-    cats = gta6map.category_urls(client.get(gta6map.LOCATIONS_INDEX, max_age=20 * 3600).text)
+    cats = gta6map.category_urls(client.get(gta6map.LOCATIONS_INDEX, max_age=2 * 3600).text)
     for u in cats[:limit] if limit else cats:
         try:
-            locs += gta6map.parse_category(u, client.get(u, max_age=20 * 3600).text)
+            locs += gta6map.parse_category(u, client.get(u, max_age=4 * 3600).text)
         except Exception as e:
             errors.append((u, str(e)))
     # 2) Secrets (index + pages de regroupement)
-    items, hubs = gta6map.secret_links(client.get(gta6map.SECRETS_INDEX, max_age=6 * 3600).text)
+    items, hubs = gta6map.secret_links(client.get(gta6map.SECRETS_INDEX, max_age=2 * 3600).text)
     seen_hubs: set[str] = set()
     while hubs:
         h = hubs.pop()
@@ -72,7 +79,7 @@ def sync_gta6map(conn, client: PoliteClient, limit: int | None) -> dict:
             continue
         seen_hubs.add(h)
         try:
-            more, more_hubs = gta6map.secret_links(client.get(h, max_age=6 * 3600).text)
+            more, more_hubs = gta6map.secret_links(client.get(h, max_age=2 * 3600).text)
             items += more
             hubs += more_hubs
         except Exception as e:
@@ -83,7 +90,7 @@ def sync_gta6map(conn, client: PoliteClient, limit: int | None) -> dict:
     secrets = []
     for u in items:
         try:
-            secrets.append(gta6map.parse_secret(u, client.get(u, max_age=20 * 3600).text))
+            secrets.append(gta6map.parse_secret(u, client.get(u, max_age=24 * 3600).text))
         except Exception as e:
             errors.append((u, str(e)))
     r1 = importer.import_map_locations(conn, locs)
@@ -100,15 +107,15 @@ def sync_gta6map(conn, client: PoliteClient, limit: int | None) -> dict:
 def sync_gtawiki(conn, client: PoliteClient, kinds: set[str], limit: int | None) -> dict:
     targets = []
     if "vehicle" in kinds:
-        targets += [("vehicle",) + t for t in gtawiki.vehicle_index(client.get(gtawiki.VEHICLE_INDEX, max_age=20 * 3600).text)]
+        targets += [("vehicle",) + t for t in gtawiki.vehicle_index(client.get(gtawiki.VEHICLE_INDEX, max_age=2 * 3600).text)]
     if "weapon" in kinds:
-        targets += [("weapon",) + t for t in gtawiki.vehicle_index(client.get(gtawiki.WEAPON_INDEX, max_age=20 * 3600).text)]
+        targets += [("weapon",) + t for t in gtawiki.vehicle_index(client.get(gtawiki.WEAPON_INDEX, max_age=2 * 3600).text)]
     if limit:
         targets = targets[:limit]
     items, errors, skipped = [], [], 0
     for i, (kind, title, url, group) in enumerate(targets, 1):
         try:
-            it = gtawiki.parse_item(title, url, kind, client.get(url, max_age=20 * 3600).text, group)
+            it = gtawiki.parse_item(title, url, kind, client.get(url, max_age=24 * 3600).text, group)
             (items.append(it) if it else None); skipped += it is None
         except Exception as e:
             errors.append((url, str(e)))
@@ -116,7 +123,7 @@ def sync_gtawiki(conn, client: PoliteClient, kinds: set[str], limit: int | None)
             log.info("gtawiki %d/%d", i, len(targets))
     rep = importer.import_wiki_items(conn, items)
     try:
-        ms = gtawiki.parse_missions(client.get(gtawiki.MISSIONS_INDEX, max_age=20 * 3600).text)
+        ms = gtawiki.parse_missions(client.get(gtawiki.MISSIONS_INDEX, max_age=2 * 3600).text)
         importer.import_missions(conn, ms)
     except Exception as e:
         errors.append((gtawiki.MISSIONS_INDEX, str(e)))

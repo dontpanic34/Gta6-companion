@@ -34,7 +34,7 @@ export default function EntityPage() {
   return (
     <div className="page entity">
       <button className="iconback" onClick={() => nav(-1)} aria-label="Retour"><ChevronLeft size={24} /></button>
-      {image && <img className="hero" src={image} alt="" referrerPolicy="no-referrer" />}
+      {image && <img className="hero" src={image} alt="" referrerPolicy="no-referrer" onError={(e) => (e.currentTarget.style.display = "none")} />}
       <div className="row" style={{ flexWrap: "nowrap", alignItems: "flex-start", marginTop: 12 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <h1 style={{ margin: "0 0 6px" }}>{e.name}</h1>

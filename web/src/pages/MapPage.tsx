@@ -5,6 +5,7 @@ import "leaflet/dist/leaflet.css";
 import { Check, ChevronUp, Crosshair as Target, ExternalLink, Eye, Lightbulb, LocateFixed, MapPinned, Play, Search, SlidersHorizontal, X } from "lucide-react";
 import { api, EntityFull, entityLink, getBaseUrl, Place, RELIABILITY_FR } from "../api";
 import { ALL_FAMILIES, categoryImage, categoryStyle, Family, familyOf, iconInner, markerHtml } from "../map/categories";
+import { onBack } from "../back";
 import { createTileLayer, distance, gameToLatLng, latLngToGame, LEONIDA_BOUNDS, TILE_BOUNDS } from "../map/leonida";
 
 const STORE = "map_state_v2";
@@ -57,6 +58,14 @@ export default function MapPage() {
   const [view, setView] = useState<{ z: number; b: L.LatLngBounds | null }>({ z: 2, b: null });
   const [toast, setToast] = useState("");
 
+  // bouton retour Android : ferme la fiche / le panneau ouvert avant de quitter la carte
+  useEffect(() => onBack(() => {
+    if (filters) { setFilters(false); return true; }
+    if (nearbyOpen) { setNearbyOpen(false); return true; }
+    if (picked) { setPicked(null); return true; }
+    if (searching) { setSearching(false); return true; }
+    return false;
+  }), [filters, nearbyOpen, picked, searching]);
   const flash = (t: string) => { setToast(t); setTimeout(() => setToast(""), 2200); };
   useEffect(() => { try { localStorage.setItem(STORE, JSON.stringify(st)); } catch { /* ignore */ } }, [st]);
   useEffect(() => { api.places(new URLSearchParams()).then(setPlaces).catch((e) => flash(e.message)); }, []);
@@ -260,7 +269,7 @@ export default function MapPage() {
           <div className="ps-scroll">
             {hero && (
               <a className="ps-hero" href={videoUrl ?? undefined} target="_blank" rel="noreferrer" onClick={(e) => { if (!videoUrl) e.preventDefault(); }}>
-                <img src={hero} alt="" referrerPolicy="no-referrer" />
+                <img src={hero} alt="" referrerPolicy="no-referrer" onError={(e) => ((e.currentTarget.parentElement as HTMLElement).style.display = "none")} />
                 {videoUrl && <span className="play"><Play size={26} fill="#0d0b14" /></span>}
               </a>
             )}

@@ -36,7 +36,7 @@ def test_parser_fields():
     assert it.name == "Karin Futo"
     assert it.fields["price"] == 9500 and it.fields["drivetrain"] == "RWD"
     assert it.fields["location_text"] == "Spawns in traffic."
-    assert it.images == ["https://www.gtabase.com/images/gta-6/vehicles/sports/karin-futo.jpg"]
+    assert it.images == ["https://www.gtabase.com/images/gta-6/vehicles/sports/karin-futo.jpg"]   # lue, mais non affichée (anti-hotlink)
 
 
 def test_classifier_quarantines_narrative_text():
@@ -163,4 +163,15 @@ def test_news_excludes_first_sync_and_spoilers(tmp_path, monkeypatch):
     names = [i["name"] for i in n["items"]]
     assert "Pegassi Infernus" in names and "Karin Futo" not in names
     assert "CANARI" not in str(n)
+    api._local.conn = None
+
+
+def test_home_network_needs_no_token_outside_does(tmp_path, monkeypatch):
+    from companion import api
+    monkeypatch.setattr(api, "DB_PATH", str(tmp_path / "h.db")); monkeypatch.setattr(api, "TOKEN", "secret")
+    api._local.conn = None
+    assert TestClient(api.app, client=("192.168.1.42", 5000)).get("/api/vehicles").status_code == 200
+    assert TestClient(api.app, client=("100.101.5.6", 5000)).get("/api/vehicles").status_code == 401   # Tailscale : jeton
+    assert TestClient(api.app, client=("8.8.8.8", 5000)).get("/api/vehicles").status_code == 401
+    assert TestClient(api.app, client=("192.168.1.42", 5000)).get("/api/health").json()["app"] == "gta6-companion"
     api._local.conn = None

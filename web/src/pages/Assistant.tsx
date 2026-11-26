@@ -96,7 +96,7 @@ export default function Assistant() {
               <div className="cardrow">
                 {m.reply.cards.map((c) => (
                   <Link key={c.id} to={entityLink(c.id)} className="minicard">
-                    {c.image ? <img src={c.image} alt="" loading="lazy" referrerPolicy="no-referrer" /> : <div className="mc-ph" />}
+                    {c.image ? <img src={c.image} alt="" loading="lazy" referrerPolicy="no-referrer" onError={(e) => (e.currentTarget.style.visibility = "hidden")} /> : <div className="mc-ph" />}
                     <div className="ellipsis title">{c.name}</div>
                     {c.subtitle && <div className="ellipsis small muted">{c.subtitle}</div>}
                   </Link>

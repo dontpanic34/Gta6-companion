@@ -1,5 +1,9 @@
 import { BookOpen, CarFront, House, Map as MapIcon, MessageCircle } from "lucide-react";
-import { NavLink, Route, Routes } from "react-router-dom";
+import { useEffect } from "react";
+import { NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { App as CapApp } from "@capacitor/app";
+import { runBackHandlers } from "./back";
+import { autoConnect } from "./connect";
 import Home from "./pages/Home";
 import Catalog from "./pages/Catalog";
 import VehicleDetailPage from "./pages/VehicleDetail";
@@ -19,8 +23,28 @@ const NAV = [
 ];
 
 export default function App() {
+  const nav = useNavigate();
+  const loc = useLocation();
+  // Bouton retour Android : ferme d'abord un panneau ouvert, sinon revient à l'écran précédent,
+  // et ne quitte l'appli (mise en arrière-plan) que depuis l'accueil.
+  useEffect(() => {
+    if (!(window as any).Capacitor?.isNativePlatform?.()) return;
+    const h = CapApp.addListener("backButton", () => {
+      if (runBackHandlers()) return;
+      if (window.location.hash.replace("#", "") !== "/" && window.location.hash !== "") nav(-1);
+      else CapApp.minimizeApp();
+    });
+    return () => { h.then((x) => x.remove()); };
+  }, [nav, loc.pathname]);
+  // Chez soi : le téléphone trouve le PC tout seul sur le Wi-Fi et récupère les données de la nuit
+  useEffect(() => {
+    (window as any).__autoConnect = autoConnect;   // utilisé par les tests et le bouton « Rechercher le PC »
+    if (!(window as any).Capacitor?.isNativePlatform?.()) return;   // navigateur sur le PC : déjà connecté
+    autoConnect((st) => { (window as any).__pcState = st; window.dispatchEvent(new Event("pcstate")); });
+  }, []);
   return (
     <div className="app">
+      <div className="statusbar-bg" aria-hidden />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/carte" element={<MapPage />} />

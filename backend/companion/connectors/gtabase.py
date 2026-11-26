@@ -66,6 +66,17 @@ def _number(s: str) -> float | int | None:
     return int(n) if n.is_integer() else n
 
 
+def parse_sitemap_lastmod(xml: str) -> dict[str, str]:
+    """URL -> date de dernière modification annoncée par le sitemap."""
+    out = {}
+    for block in re.findall(r"<url>(.*?)</url>", xml, re.S):
+        loc = re.search(r"<loc>\s*([^<\s]+)", block)
+        lm = re.search(r"<lastmod>\s*([^<\s]+)", block)
+        if loc and lm:
+            out[loc.group(1)] = lm.group(1)
+    return out
+
+
 def parse_sitemap(xml: str) -> list[str]:
     return re.findall(r"<loc>\s*([^<\s]+)\s*</loc>", xml)
 

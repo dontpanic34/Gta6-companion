@@ -1,3 +1,4 @@
+import { loadSnapshot } from "./connect";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /** Mode hors ligne : répond aux lectures depuis l'instantané embarqué (filtré au niveau
  *  anti-spoiler le plus strict) et garde les statuts personnels sur le téléphone. */
@@ -9,7 +10,8 @@ type Snap = { locked?: Record<string, Locked>; story?: Story; news?: { items: { 
   prefs: Record<string, unknown>;
 };
 let snap: Promise<Snap> | null = null;
-const load = () => (snap ??= fetch("data/snapshot.json").then((r) => r.json()));
+// dernière version reçue du PC (gardée sur le téléphone), sinon celle embarquée dans l'APK
+const load = () => (snap ??= loadSnapshot());
 
 const STATUS_KEY = "offline_status_v1";
 const statuses = (): Record<string, string> => { try { return JSON.parse(localStorage.getItem(STATUS_KEY) ?? "{}"); } catch { return {}; } };
