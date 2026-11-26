@@ -1,5 +1,6 @@
 ﻿# Tâche quotidienne : sauvegarde, puis synchronisation de toutes les sources.
 $ErrorActionPreference = "Continue"
+$env:PYTHONIOENCODING = "utf-8"   # accents corrects dans le journal
 $root = Resolve-Path "$PSScriptRoot\..\.."
 Set-Location "$root\backend"
 $py = ".\.venv\Scripts\python"

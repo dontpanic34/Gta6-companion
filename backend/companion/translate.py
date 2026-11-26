@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import sys
 import os
 import urllib.request
 
@@ -63,7 +64,7 @@ def main() -> None:
     ap.add_argument("--db", default="data/companion.db")
     ap.add_argument("--limit", type=int)
     a = ap.parse_args()
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", stream=sys.stdout)  # stdout : PowerShell n'affiche pas d'erreur rouge
     print(run(db.connect(a.db), a.limit), "textes traduits")
 
 

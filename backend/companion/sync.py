@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import sys
 import re
 import time
 from pathlib import Path
@@ -134,7 +135,7 @@ def main() -> None:
     ap.add_argument("--interval", type=float, default=3.0)
     ap.add_argument("--report-dir", default="data/reports")
     a = ap.parse_args()
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", stream=sys.stdout)  # stdout : PowerShell n'affiche pas d'erreur rouge
     Path(a.db).parent.mkdir(parents=True, exist_ok=True)
     conn = db.connect(a.db)
     client = PoliteClient(a.cache, min_interval=a.interval)
