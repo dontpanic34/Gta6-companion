@@ -1,3 +1,4 @@
+import { offlineChat } from "../offlineAssistant";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowUp, CarFront, Crosshair, GitCompare, MapPinned, Mic, Sparkles, Volume2, VolumeX } from "lucide-react";
@@ -57,10 +58,12 @@ export default function Assistant() {
       setMsgs((m) => [...m, { role: "assistant", content: reply.text, reply }]);
       if (voiceOut || spoken) speak(reply.text);   // question posée à la voix -> réponse lue à voix haute
     } catch (e) {
-      const msg = (e as Error).message.includes("PC") || (e as Error).message.includes("hors ligne")
-        ? "L'assistant tourne sur votre PC. Connectez-vous (Réglages → Connexion au PC) via Tailscale pour discuter."
-        : `Erreur : ${(e as Error).message}`;
-      setMsgs((m) => [...m, { role: "assistant", content: msg }]);
+      // PC injoignable : recherche locale dans les données du téléphone
+      const reply = await offlineChat(t);
+      setMsgs((m) => [...m, { role: "assistant", content: reply.text, reply }]);
+      if (voiceOut || spoken) speak(reply.text);
+      (window as any).__autoConnect?.();   // relance la recherche du PC en arrière-plan
+      void e;
     } finally { setBusy(false); }
   };
 

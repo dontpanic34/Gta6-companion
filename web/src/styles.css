@@ -136,7 +136,7 @@ table.kv td:first-child { color: var(--muted); width: 40%; }
 .chat-scroll { flex: 1; overflow-y: auto; padding: calc(12px + var(--safe-top)) 14px 12px; display: flex; flex-direction: column; gap: 10px; }
 .chat-empty { text-align: center; padding: 24px 6px; color: var(--muted); display: grid; gap: 12px; justify-items: center; }
 .suggest { text-align: left; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; width: 100%; }
-.bubble { max-width: 88%; padding: 10px 14px; border-radius: 18px; line-height: 1.45; }
+.bubble { max-width: 88%; padding: 10px 14px; border-radius: 18px; line-height: 1.45; white-space: pre-line; }
 .bubble.user { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 6px; }
 .bubble.assistant { align-self: flex-start; background: var(--surface); border: 1px solid var(--line); border-bottom-left-radius: 6px; max-width: 100%; }
 .cardrow { display: flex; gap: 8px; overflow-x: auto; margin: 10px -4px 0; padding: 0 4px 4px; scrollbar-width: none; }
