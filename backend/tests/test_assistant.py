@@ -73,3 +73,19 @@ def test_chat_with_mocked_ollama_uses_tools(monkeypatch):
     assert out["text"].startswith("La Mer-Can Outlaw") and out["cards"][0]["name"] == "Mer-Can Outlaw"
     tool_msg = seen[1][-1]
     assert tool_msg["role"] == "tool" and "donnees_non_fiables" in tool_msg["content"]
+
+
+def test_assistant_masks_protected_names_unless_explicit_spoil(monkeypatch):
+    from companion import assistant as A
+    a, c = setup()
+    c.execute("INSERT INTO entity(id,kind,canonical_name,spoiler_status,name_status) VALUES ('character:boss-canari','character','Boss Canari','evaluated','safe')")
+    c.execute("INSERT INTO spoiler_gate(entity_id,kind,chapter) VALUES ('character:boss-canari','chapter',3)"); c.commit()
+    # même si l'IA « sait » quelque chose, le nom est masqué
+    monkeypatch.setattr(a, "ollama_available", lambda: True)
+    monkeypatch.setattr(a, "_ollama", lambda msgs: {"role": "assistant", "content": "Attention, Boss Canari te trahira."})
+    out = a.chat("s", "Que va-t-il se passer ?")
+    assert "Boss Canari" not in out["text"] and "[masqué]" in out["text"]
+    # spoil explicite : seulement pour le contenu demandé
+    out = a.chat("s", "spoile-moi Quête CANARI")
+    assert "CANARI" in out["text"] and out["text"].startswith("⚠ Spoil demandé")
+    assert "Boss Canari" not in str(out)
