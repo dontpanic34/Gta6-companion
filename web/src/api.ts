@@ -58,7 +58,7 @@ export interface EntityFull {
   claims: { field: string; value_json: string; value_kind: string; source_id: string; source_url: string | null; status: string }[];
   content: { level: number; ord: number; body: string }[];
   has_solution?: boolean; status?: string | null; closes_count?: number;
-  linked?: { id: string; image: string | null; stats: Record<string, number | null> };
+  linked?: { id: string; image: string | null; stats: Record<string, number | null>; info?: Record<string, any> };
   location?: { x: number; y: number; precision: string } | null;
 }
 
@@ -73,6 +73,15 @@ export const getBaseUrl = () => { try { return localStorage.getItem(BASE_KEY) ??
 export const setBaseUrl = (u: string) => { try { localStorage.setItem(BASE_KEY, u.replace(/\/+$/, "")); } catch { /* ignore */ } };
 export const getToken = () => { try { return localStorage.getItem(TOKEN_KEY) ?? ""; } catch { return ""; } };
 export const setToken = (t: string) => { try { localStorage.setItem(TOKEN_KEY, t); } catch { /* ignore */ } };
+
+/** Image via le PC (téléchargée une fois, réduite) ; hors ligne : adresse d'origine. */
+export function imgSrc(u?: string | null): string | undefined {
+  if (!u) return undefined;
+  if (u.startsWith("/") || u.startsWith("data:")) return u;
+  const base = getBaseUrl();
+  if (isNative() && !base) return u;
+  return `${isNative() ? base : ""}/api/img?u=${encodeURIComponent(u)}`;
+}
 
 const isNative = () => !!(window as any).Capacitor?.isNativePlatform?.();
 

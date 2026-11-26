@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowDownUp, Check, GitCompare, Plus, Search, SlidersHorizontal, X } from "lucide-react";
-import { api, DRIVETRAIN_FR, STAT_LABELS, VehicleSummary, WEAPON_STAT_LABELS, WeaponSummary } from "../api";
+import { api, imgSrc, DRIVETRAIN_FR, STAT_LABELS, VehicleSummary, WEAPON_STAT_LABELS, WeaponSummary } from "../api";
 import { classStyle } from "../map/categories";
 import { onBack } from "../back";
 import { FamIcon } from "./MapPage";
@@ -156,7 +156,7 @@ export default function Catalog({ kind }: { kind: Kind }) {
             <div key={v.id} className="vrow">
               <Link to={`${conf.route}/${encodeURIComponent(v.id)}`} className="vrow-main">
                 <div className="vthumb" style={{ background: `linear-gradient(135deg, ${st.color}33, transparent)` }}>
-                  {v.image ? <img src={v.image} alt="" loading="lazy" referrerPolicy="no-referrer" onError={(e) => (e.currentTarget.style.display = "none")} />
+                  {v.image ? <img src={imgSrc(v.image)} alt="" loading="lazy" referrerPolicy="no-referrer" onError={(e) => (e.currentTarget.style.display = "none")} />
                     : null}
                   <span className="vclass" style={{ background: st.color }}><FamIcon f={st} size={13} color="#0d0b14" /></span>
                   {ranked && <span className="rank">#{idx + 1}</span>}

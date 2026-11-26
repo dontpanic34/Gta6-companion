@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Check, ChevronUp, Crosshair as Target, ExternalLink, Eye, Lightbulb, LocateFixed, MapPinned, Play, Search, SlidersHorizontal, X } from "lucide-react";
-import { api, EntityFull, entityLink, getBaseUrl, Place, RELIABILITY_FR } from "../api";
+import { api, imgSrc, EntityFull, entityLink, getBaseUrl, Place, RELIABILITY_FR } from "../api";
 import { ALL_FAMILIES, categoryImage, categoryStyle, Family, familyOf, iconInner, markerHtml } from "../map/categories";
 import { onBack } from "../back";
 import { createTileLayer, distance, gameToLatLng, latLngToGame, LEONIDA_BOUNDS, TILE_BOUNDS } from "../map/leonida";
@@ -300,8 +300,10 @@ export default function MapPage() {
           <button className="grabber-btn" onClick={() => setExpanded(!expanded)} aria-label="Agrandir"><span className="grabber" /></button>
           <div className="ps-scroll">
             {hero && (
-              <a className="ps-hero" href={videoUrl ?? undefined} target="_blank" rel="noreferrer" onClick={(e) => { if (!videoUrl) e.preventDefault(); }}>
-                <img src={hero} alt="" referrerPolicy="no-referrer" onError={(e) => ((e.currentTarget.parentElement as HTMLElement).style.display = "none")} />
+              <a className="ps-hero" style={{ display: "none" }} href={videoUrl ?? undefined} target="_blank" rel="noreferrer" onClick={(e) => { if (!videoUrl) e.preventDefault(); }}>
+                <img key={hero} src={imgSrc(hero)} alt="" referrerPolicy="no-referrer"
+                  onLoad={(e) => { if (e.currentTarget.naturalWidth > 40) (e.currentTarget.parentElement as HTMLElement).style.display = ""; }}
+                  onError={(e) => ((e.currentTarget.parentElement as HTMLElement).style.display = "none")} />
                 {videoUrl && <span className="play"><Play size={26} fill="#0d0b14" /></span>}
               </a>
             )}
@@ -325,9 +327,22 @@ export default function MapPage() {
                 ? <button className="btn ghost wide" onClick={() => reveal("name")}><Eye size={16} /> Confirmer : afficher le vrai titre</button>
                 : <button className="linkbtn" onClick={() => setConfirm("name")}>Titre masqué (anti-spoiler) · révéler</button>
             )}
-            {picked.linked_stats && <div className="ministats big">{Object.entries({ speed: "Vitesse", acceleration: "Accél.", handling_road: "Route", handling_offroad: "Tout-terrain" })
-              .filter(([k]) => picked.linked_stats![k] != null).map(([k, l]) => <span key={k}><b>{picked.linked_stats![k]}</b>{l}</span>)}</div>}
+            {picked.linked_stats && <div className="ps-stats">{Object.entries({ speed: "Vitesse", acceleration: "Accélération", handling_road: "Maniabilité", handling_offroad: "Tout-terrain", strength: "Solidité" })
+              .filter(([k]) => picked.linked_stats![k] != null).map(([k, l]) => (
+                <div className="stat" key={k}><span className="muted">{l}</span>
+                  <div className="bar"><i style={{ width: `${picked.linked_stats![k]! * 10}%`, background: `linear-gradient(90deg, ${pst.color}, var(--accent))` }} /></div>
+                  <span>{picked.linked_stats![k]}<span className="muted small">/10</span></span></div>))}</div>}
 
+            {d?.linked?.info && Object.keys(d.linked.info).length > 0 && (() => {
+              const i = d.linked!.info!; const tags = [i.manufacturer, i.class, i.standout_set && `Série ${i.standout_set}`, i.drivetrain,
+                i.seats && `${i.seats} places`, i.top_speed_kmh && `${i.top_speed_kmh} km/h`, i.price != null && `${Number(i.price).toLocaleString("fr-FR")} $`].filter(Boolean);
+              const txt = (k: string) => i[k] ?? i[`${k}_en`];
+              return (<section><h4>Le véhicule</h4>
+                {tags.length > 0 && <div className="row small" style={{ marginBottom: 6 }}>{tags.map((t) => <span key={String(t)} className="tag">{t}</span>)}</div>}
+                {txt("description") && <p>{txt("description")}</p>}
+                {txt("how_to_unlock") && <p><b>Obtention :</b> {txt("how_to_unlock")}</p>}
+              </section>);
+            })()}
             <section><h4>Emplacement</h4>
               {level(1).filter((c) => c.ord === 0).map((c, i) => <p key={i}>{c.body}</p>)}
               {!level(1).some((c) => c.ord === 0) && <p>{claim("description") ?? (d ? "Pas de détail vérifié." : "Chargement…")}</p>}

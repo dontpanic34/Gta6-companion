@@ -201,7 +201,7 @@ html.native { --safe-top: max(env(safe-area-inset-top, 0px), 36px); --safe-botto
 .grabber-btn .grabber { margin: 0 auto; }
 .ps-scroll { overflow-y: auto; padding: 0 16px 12px; }
 .ps-hero { display: block; position: relative; margin: 0 -16px 12px; }
-.ps-hero img { width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block; background: var(--surface-2); }
+.ps-hero img { width: 100%; aspect-ratio: auto; height: 150px; object-fit: cover; display: block; background: var(--surface-2); }
 .ps-hero .play { position: absolute; inset: 0; margin: auto; width: 64px; height: 64px; border-radius: 18px; background: #fff; display: grid; place-items: center; }
 .ps-head { display: flex; gap: 12px; align-items: flex-start; }
 .ps-title { font-size: 20px; font-weight: 800; line-height: 1.2; letter-spacing: -.01em; }
@@ -256,3 +256,4 @@ html.native { --safe-top: max(env(safe-area-inset-top, 0px), 36px); --safe-botto
 .bar.big { height: 8px; border-radius: 4px; }
 .kvrow { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
 .kvrow > span:last-child { text-align: right; }
+.placesheet.full .ps-hero img { height: 220px; }

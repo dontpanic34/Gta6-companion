@@ -129,6 +129,38 @@ def reference_done(rid: str, done: bool = Body(..., embed=True)):
     return {"ok": True}
 
 
+IMG_HOSTS = {"gta.wiki", "static.wikia.nocookie.net", "img.youtube.com", "gta6map.city", "map.gtadb.org"}
+
+
+@app.get("/api/img")
+def img(u: str):
+    """Relais d'images : le PC télécharge une fois (cache disque), réduit à 640 px et sert au téléphone.
+    Évite les grosses images qui ne s'affichent pas sur mobile. Hôtes limités aux sources déjà utilisées."""
+    import hashlib, urllib.request
+    from urllib.parse import urlsplit
+    from fastapi.responses import Response as R
+    if urlsplit(u).netloc not in IMG_HOSTS:
+        raise HTTPException(400, "hôte non autorisé")
+    cache = Path(DB_PATH).resolve().parent / "img-cache"; cache.mkdir(exist_ok=True)
+    f = cache / (hashlib.sha256(u.encode()).hexdigest()[:32] + ".jpg")
+    if not f.exists():
+        try:
+            from .http import USER_AGENT
+            with urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": USER_AGENT}), timeout=20) as r:
+                raw = r.read()
+        except Exception:
+            raise HTTPException(404, "image indisponible")
+        try:
+            from io import BytesIO
+            from PIL import Image
+            im = Image.open(BytesIO(raw)).convert("RGB"); im.thumbnail((640, 640))
+            b = BytesIO(); im.save(b, "JPEG", quality=82); raw = b.getvalue()
+        except Exception:
+            pass   # Pillow absent : image d'origine
+        f.write_bytes(raw)
+    return R(f.read_bytes(), media_type="image/jpeg", headers={"Cache-Control": "public, max-age=2592000"})
+
+
 @app.get("/api/zones", dependencies=[Depends(auth)])
 def zones():
     from . import gazetteer
@@ -279,7 +311,12 @@ def get_entity(entity_id: str):
         if importer.resolve_on_demand(c, d["name"]):
             link_catalog(c, [row])
     if row.get("linked_id"):
-        d["linked"] = {"id": row["linked_id"], "image": row["image"], "stats": row["linked_stats"]}
+        d["linked"] = {"id": row["linked_id"], "image": row["image"], "stats": row["linked_stats"], "info": {}}
+        for f, v in c.execute("SELECT field, value_json FROM visible_claim WHERE entity_id=? AND field IN "
+                              "('manufacturer','class','standout_set','drivetrain','seats','price','top_speed_kmh',"
+                              "'description','description_en','how_to_unlock','how_to_unlock_en','location_text','location_text_en')",
+                              (row["linked_id"],)):
+            d["linked"]["info"].setdefault(f, json.loads(v))
     loc = c.execute("SELECT x, y, precision FROM visible_location WHERE entity_id=?", (entity_id,)).fetchone()
     d["location"] = dict(loc) if loc else None
     return d

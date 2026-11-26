@@ -4,7 +4,7 @@ $root = Resolve-Path "$PSScriptRoot\..\.."
 Set-Location "$root\backend"
 python -m venv .venv
 .\.venv\Scripts\python -m pip install --upgrade pip
-.\.venv\Scripts\python -m pip install fastapi uvicorn httpx pytest python-multipart
+.\.venv\Scripts\python -m pip install fastapi uvicorn httpx pytest python-multipart pillow
 .\.venv\Scripts\python -m pytest -q
 Set-Location "$root\web"
 npm install

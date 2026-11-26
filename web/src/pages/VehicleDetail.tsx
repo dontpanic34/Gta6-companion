@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Ban, ChevronLeft, CircleCheck, Heart, Lock, MapPinned, Search as SearchIcon, TriangleAlert } from "lucide-react";
-import { api, DRIVETRAIN_FR, FIELD_LABELS, KIND_LABELS, STAT_LABELS, VehicleDetail, WEAPON_STAT_LABELS } from "../api";
+import { api, imgSrc, DRIVETRAIN_FR, FIELD_LABELS, KIND_LABELS, STAT_LABELS, VehicleDetail, WEAPON_STAT_LABELS } from "../api";
 import { classStyle } from "../map/categories";
 import { FamIcon } from "./MapPage";
 
@@ -63,7 +63,7 @@ export default function VehicleDetailPage() {
     <div className="detail">
       <button className="iconback" onClick={() => nav(-1)} aria-label="Retour"><ChevronLeft size={24} /></button>
       <div className="d-hero" style={{ background: `linear-gradient(160deg, ${st.color}40, var(--bg) 70%)` }}>
-        {d.media[0] && <img src={d.media[0]} alt="" referrerPolicy="no-referrer" onError={(e) => (e.currentTarget.style.display = "none")} />}
+        {d.media[0] && <img src={imgSrc(d.media[0])} alt="" referrerPolicy="no-referrer" onError={(e) => (e.currentTarget.style.display = "none")} />}
       </div>
       <div className="d-body">
         <div className="row" style={{ flexWrap: "nowrap", gap: 10 }}>
@@ -115,7 +115,7 @@ export default function VehicleDetailPage() {
             <div className="cardrow">
               {d.siblings.map((s) => (
                 <Link key={s.id} to={`${route}/${encodeURIComponent(s.id)}`} className="minicard">
-                  {s.image ? <img src={s.image} alt="" loading="lazy" referrerPolicy="no-referrer" onError={(e) => (e.currentTarget.style.visibility = "hidden")} /> : <div className="mc-ph" />}
+                  {s.image ? <img src={imgSrc(s.image)} alt="" loading="lazy" referrerPolicy="no-referrer" onError={(e) => (e.currentTarget.style.visibility = "hidden")} /> : <div className="mc-ph" />}
                   <div className="title" style={{ fontSize: 13 }}>{s.name}</div>
                   <div className="small muted">{s.variant_type === "standard" ? "Modèle de base" : "Variante"}</div>
                 </Link>
