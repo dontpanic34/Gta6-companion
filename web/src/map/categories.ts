@@ -111,7 +111,29 @@ export function iconInner(name: IconName): string {
 const esc = (t: string) => t.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!));
 
 /** Marqueur : picto coloré à liseré sombre (lisible sur la carte), libellé optionnel dessous. */
-export function markerHtml(st: CatStyle, size: number, done: boolean, label?: string): string {
+/** Icônes illustrées (planche générée avec Gemini, découpée par scripts/cut_icons.py) : catégorie -> n° d'icône. */
+const CATEGORY_IMG: Record<string, number> = {
+  "Saut spectaculaire": 0, "Sous le pont": 1, "Vol en rase-mottes": 2, "Saut en base jump": 3,
+  "Défi de course": 4, "Thrillbilly Mud Club": 4, "Gellhorn Raceway": 4, "Ambrosia Raceway": 4, "Hamlet Boone Speedway": 4, "Intro aux courses": 4,
+  "Coffre-fort": 5, "Argent et caches": 6, "Cartes, flamants et plus": 8, "Trésors et sous-marin": 9, "Magazine": 10, "Playlist unique": 11,
+  "Véhicules rares": 12, "Véhicule d’exception": 13, "Moses Vehicle": 13,
+  "Armes cachées et uniques": 14, "Ammu-Nation": 14, "Stand de tir": 16,
+  "Easter eggs": 17, "Mystères": 18, "Créatures et rencontres": 19, "Lieux cachés": 20, "Activités": 21,
+  "Panier de basket": 22, "Spot de pêche": 23, "Borne d’arcade": 24, "Billard": 25, "Mini-golf": 26, "Terrain de golf": 26,
+  "Salle de sport": 27, "Lieux de méditation": 28, "Garage de tuning": 29, "Pay 'n' Spray": 30, "Garage": 31, "Garage à vendre": 31,
+  "Curiosité": 33, "Astuces et mécaniques": 34, "Sculpture": 36, "Monument": 36, "Références et caméos": 37, "1010 Mural": 38,
+};
+export function categoryImage(category: string | null): string | null {
+  const n = category != null ? CATEGORY_IMG[category] : undefined;
+  return n == null ? null : `icons/map/${String(n).padStart(2, "0")}.png`;
+}
+
+export function markerHtml(st: CatStyle, size: number, done: boolean, label?: string, category?: string | null): string {
+  const img = categoryImage(category ?? null);
+  if (img) {
+    return `<div class="mk${done ? " done" : ""}"><img class="pin3" src="${img}" width="${Math.round(size * 1.35)}" height="${Math.round(size * 1.35)}" alt="" draggable="false">` +
+      (label ? `<span class="mk-label">${esc(label)}</span>` : "") + `</div>`;
+  }
   // Style « autocollant » (comme les cartes de référence) : pas de pastille, le picto lui-même
   // est coloré, cerné d'un épais contour sombre puis d'un liseré clair -> lisible sur toute la carte.
   const g = iconInner(st.icon);

@@ -147,3 +147,20 @@ def test_only_real_points_of_interest():
         assert not is_poi(cat), cat
     for cat in ["Saut spectaculaire", "Véhicule d’exception", "Armes cachées et uniques", "Ammu-Nation", "Pay 'n' Spray", "Coffre-fort", None]:
         assert is_poi(cat), cat
+
+
+def test_news_excludes_first_sync_and_spoilers(tmp_path, monkeypatch):
+    from companion import api
+    monkeypatch.setattr(api, "DB_PATH", str(tmp_path / "n.db")); monkeypatch.setattr(api, "TOKEN", None)
+    api._local.conn = None
+    c = api.conn()
+    importer.import_items(c, items())                       # première collecte : pas des nouveautés
+    c.execute("UPDATE revision SET changed_at = datetime('now','-10 days')"); c.commit()
+    c.execute("UPDATE entity SET created_at = datetime('now','-10 days')"); c.commit()
+    importer.import_items(c, [ParsedItem("infernus", "u", "vehicle", "Pegassi Infernus", {"class": "Super", "speed": 9})])
+    c.execute("INSERT INTO entity(id,kind,canonical_name,spoiler_status) VALUES ('secret:new','easter_egg','Secret CANARI','unknown')"); c.commit()
+    n = api.news(days=1)
+    names = [i["name"] for i in n["items"]]
+    assert "Pegassi Infernus" in names and "Karin Futo" not in names
+    assert "CANARI" not in str(n)
+    api._local.conn = None

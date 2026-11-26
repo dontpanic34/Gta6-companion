@@ -4,7 +4,7 @@
 type Locked = { hints: string[]; solution: string[]; video: unknown; name: string | null };
 type Story = { chapters: { num: number; title: string }[]; missions: { id: string; name: string; alias: string; kind: string; name_safe: boolean; chapter: number | null; closes_count?: number }[];
   characters: { id: string; name: string; chapter: number | null }[] };
-type Snap = { locked?: Record<string, Locked>; story?: Story;
+type Snap = { locked?: Record<string, Locked>; story?: Story; news?: { items: { created_at: string }[]; corrections: number; baseline: string | null };
   vehicles: any[]; weapons: any[]; places: any[]; facets: unknown; details: Record<string, any>;
   prefs: Record<string, unknown>;
 };
@@ -87,6 +87,11 @@ export async function offlineGet(path: string): Promise<unknown> {
   if (p === "/api/health") return { ok: true, offline: true };
   if (p === "/api/progress") return progress();
   if (p === "/api/progress/options") return options(s);
+  if (p === "/api/news") {
+    const days = +(q.get("days") ?? 1), since = Date.now() - days * 864e5;
+    const items = (s.news?.items ?? []).filter((i: { created_at: string }) => Date.parse(i.created_at.replace(" ", "T") + "Z") >= since);
+    return { days, items, corrections: 0, baseline: s.news?.baseline ?? null };
+  }
   if (p === "/api/places/facets") return s.facets;
   if (p === "/api/places") return s.places.map(withStatus);
   if (p.startsWith("/api/prefs/")) { const k = p.slice(11); return prefs()[k] ?? s.prefs[k] ?? null; }

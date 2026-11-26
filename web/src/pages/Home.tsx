@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { CarFront, ChevronRight, LocateFixed, MessageCircle, Mountain, ScrollText, Star } from "lucide-react";
 import ViceHero from "../components/ViceHero";
-import { api, entityLink, Place, ProgressOptions } from "../api";
+import { api, entityLink, News, Place, ProgressOptions } from "../api";
 import { categoryStyle } from "../map/categories";
 import { distance } from "../map/leonida";
 import { FamIcon } from "./MapPage";
@@ -11,6 +11,9 @@ export default function Home() {
   const [o, setO] = useState<ProgressOptions | null>(null);
   const [garage, setGarage] = useState<{ id: string; name: string; status: string }[]>([]);
   const [places, setPlaces] = useState<Place[]>([]);
+  const [newsDays, setNewsDays] = useState(1);
+  const [news, setNews] = useState<News | null>(null);
+  useEffect(() => { api.news(newsDays).then(setNews).catch(() => setNews(null)); }, [newsDays]);
   const me = useMemo<[number, number] | null>(() => { try { return JSON.parse(localStorage.getItem("map_state_v2") ?? "{}").me ?? null; } catch { return null; } }, []);
 
   useEffect(() => {
@@ -40,6 +43,21 @@ export default function Home() {
         </div>
         <ChevronRight size={20} className="muted" />
       </Link>
+
+      <div className="row" style={{ marginTop: 22 }}><h2 style={{ margin: 0 }}>Nouveautés</h2><span className="spacer" />
+        {[[1, "24 h"], [7, "7 j"], [30, "30 j"]].map(([d, l]) => (
+          <button key={d} className={`chip ${newsDays === d ? "on" : ""}`} onClick={() => setNewsDays(d as number)}>{l}</button>))}
+      </div>
+      <div className="card" style={{ padding: 6, marginTop: 10 }}>
+        {news?.items.length ? news.items.slice(0, 8).map((n) => { const st = categoryStyle(n.category, n.id.startsWith("secret:")); return (
+          <Link key={n.id} to={entityLink(n.id)} className="listrow">
+            <span className="famicon" style={{ background: st.color }}><FamIcon f={st} size={16} color="#140a24" /></span>
+            <span className="grow ellipsis" style={{ textAlign: "left" }}>{n.name}<span className="small muted"> · {n.category ?? (n.kind.startsWith("vehicle") ? "Véhicule" : n.kind.startsWith("weapon") ? "Arme" : "")}</span></span>
+            <span className="badge">nouveau</span>
+          </Link>); })
+          : <p className="small muted" style={{ margin: 10 }}>{news?.baseline ? "Rien de nouveau sur cette période." : "Les nouveautés apparaîtront après les prochaines mises à jour de nuit."}</p>}
+        {!!news?.corrections && <p className="small muted" style={{ margin: "6px 10px" }}>+ {news.corrections} fiche(s) corrigée(s) ou complétée(s)</p>}
+      </div>
 
       <h2>Autour de moi</h2>
       {nearby.length ? (

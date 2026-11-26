@@ -4,7 +4,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Check, ChevronUp, Crosshair as Target, ExternalLink, Eye, Lightbulb, LocateFixed, MapPinned, Play, Search, SlidersHorizontal, X } from "lucide-react";
 import { api, EntityFull, entityLink, getBaseUrl, Place, RELIABILITY_FR } from "../api";
-import { ALL_FAMILIES, categoryStyle, Family, familyOf, iconInner, markerHtml } from "../map/categories";
+import { ALL_FAMILIES, categoryImage, categoryStyle, Family, familyOf, iconInner, markerHtml } from "../map/categories";
 import { createTileLayer, distance, gameToLatLng, latLngToGame, LEONIDA_BOUNDS, TILE_BOUNDS } from "../map/leonida";
 
 const STORE = "map_state_v2";
@@ -28,9 +28,10 @@ function markerIcon(p: Place, size: number, withLabel: boolean, selected: boolea
   const key = withLabel || selected ? "" : `${p.category}|${isSecret(p)}|${size}|${done}`;
   if (key && iconCache.has(key)) return iconCache.get(key)!;
   const st = categoryStyle(p.category, isSecret(p));
+  const px = categoryImage(p.category) ? Math.round(size * 1.35) : size;   // icônes illustrées un peu plus grandes
   const icon = L.divIcon({
-    html: markerHtml(st, selected ? size + 8 : size, done, withLabel ? p.name : undefined),
-    className: `mkwrap${selected ? " sel" : ""}`, iconSize: [size, size], iconAnchor: [size / 2, size / 2],
+    html: markerHtml(st, selected ? size + 8 : size, done, withLabel ? p.name : undefined, p.category),
+    className: `mkwrap${selected ? " sel" : ""}`, iconSize: [px, px], iconAnchor: [px / 2, px / 2],
   });
   if (key) iconCache.set(key, icon);
   return icon;
@@ -130,7 +131,7 @@ export default function MapPage() {
       const ll = gameToLatLng(p.x!, p.y!);
       const click = (e: L.LeafletEvent) => { L.DomEvent.stopPropagation(e as L.LeafletMouseEvent); pick(p); };
       if (z >= 3) {
-        L.marker(ll, { icon: markerIcon(p, z >= 5 ? 30 : z >= 4 ? 26 : 22, labeled.has(p.id), picked?.id === p.id), keyboard: false,
+        L.marker(ll, { icon: markerIcon(p, z >= 5 ? 34 : z >= 4 ? 30 : 24, labeled.has(p.id), picked?.id === p.id), keyboard: false,
           zIndexOffset: picked?.id === p.id ? 1000 : 0 }).on("click", click).addTo(g);
       } else {
         L.circleMarker(ll, { radius: 3.5, weight: 0.8, color: "#0d0b14", fillColor: categoryStyle(p.category, isSecret(p)).color, fillOpacity: 0.95 })
@@ -261,7 +262,9 @@ export default function MapPage() {
               </a>
             )}
             <div className="ps-head">
-              <span className="famicon big" style={{ background: pst.color }}><FamIcon f={pst} size={22} color="#0d0b14" /></span>
+              {categoryImage(picked.category)
+                ? <img src={categoryImage(picked.category)!} width={48} height={48} alt="" />
+                : <span className="famicon big" style={{ background: pst.color }}><FamIcon f={pst} size={22} color="#0d0b14" /></span>}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="ps-title">{d?.name ?? picked.name}</div>
                 <div className="row small" style={{ marginTop: 6 }}>

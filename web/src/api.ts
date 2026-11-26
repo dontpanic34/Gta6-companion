@@ -30,6 +30,9 @@ export interface ProgressOptions {
   characters: { id: string; name: string; met: boolean }[];
 }
 
+export interface News { days: number; corrections: number; baseline: string | null;
+  items: { id: string; kind: string; name: string; category: string | null; region: string | null; created_at: string }[] }
+
 export interface FieldValue {
   value: unknown; kind: "official" | "community" | "subjective"; contradiction: boolean;
   sources: { source: string; url: string | null; value: unknown; status: string; observed_at: string }[];
@@ -116,6 +119,7 @@ export const api = {
   progressOptions: () => req<ProgressOptions>("/api/progress/options"),
   setMission: (id: string, value: boolean) => req<ProgressOptions>(`/api/progress/mission/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify({ value }) }),
   setCharacter: (id: string, value: boolean) => req<ProgressOptions>(`/api/progress/character/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify({ value }) }),
+  news: (days: number) => req<News>(`/api/news?days=${days}`),
   garage: () => req<{ id: string; name: string; status: string }[]>("/api/garage"),
   setStatus: (id: string, status: string) => req(`/api/status/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify({ status }) }),
 };

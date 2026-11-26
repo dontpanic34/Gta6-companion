@@ -84,6 +84,28 @@ def missable_count(c, mission_id: str) -> int:
     return len([i for i in json.loads(r[0]) if i not in done])
 
 
+@app.get("/api/news", dependencies=[Depends(auth)])
+def news(days: int = 1, limit: int = 60):
+    """Découvertes et corrections récentes, visibles selon la progression.
+    La toute première collecte ne compte pas comme « nouveauté »."""
+    c = conn()
+    first = c.execute("SELECT MIN(changed_at) FROM revision").fetchone()[0]
+    if not first:
+        return {"days": days, "items": [], "corrections": 0, "baseline": None}
+    since = f"-{max(1, min(days, 90))} days"
+    rows = c.execute(f"""
+        SELECT v.id, v.kind, v.display_name AS name, v.category, v.region_label AS region, e.created_at
+        FROM visible_entity v JOIN entity e ON e.id = v.id
+        WHERE e.created_at >= datetime('now', ?) AND e.created_at > datetime(?, '+1 day')
+          AND v.kind NOT IN ('vehicle_model','weapon_model','character','mission','side_mission')
+        ORDER BY e.created_at DESC LIMIT ?""", (since, first, limit)).fetchall()
+    from .classify import is_poi
+    items = [dict(r) for r in rows if r["id"].startswith(("vehicle:", "weapon:", "secret:")) or is_poi(r["category"])]
+    corrections = c.execute("""SELECT COUNT(DISTINCT row_key) FROM revision WHERE table_name IN ('claim','activity_content')
+                               AND before_json IS NOT NULL AND changed_at >= datetime('now', ?)""", (since,)).fetchone()[0]
+    return {"days": days, "items": items, "corrections": corrections, "baseline": first}
+
+
 @app.get("/api/progress/options", dependencies=[Depends(auth)])
 def progress_options():
     """Ce que le joueur peut cocher, filtré par sa progression (aucun titre de chapitre futur)."""
