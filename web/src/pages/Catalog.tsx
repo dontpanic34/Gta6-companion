@@ -12,23 +12,39 @@ type Item = (VehicleSummary | WeaponSummary) & { stats: Record<string, number | 
 const CONF = {
   vehicle: {
     title: "Véhicules", route: "/vehicules", labels: STAT_LABELS as Record<string, string>, classParam: "vclass",
-    sorts: [["profile", "Mon style"], ["name", "Nom"], ["speed", "Vitesse"], ["acceleration", "Accélération"], ["handling_road", "Maniabilité"], ["handling_offroad", "Tout-terrain"], ["price", "Prix"]],
+    sorts: [["balanced", "Équilibrée"], ["speed", "Plus rapide"], ["acceleration", "Accélération"], ["handling_road", "Plus maniable"], ["handling_offroad", "Tout-terrain"], ["strength", "Solidité"], ["profile", "Mon style"], ["price", "Prix"], ["name", "Nom"]],
     quick: [["exclude_class", "Muscle", "Sans muscle cars"], ["min_handling_offroad", "6", "Bon hors route"], ["drivetrain", "AWD", "Intégrale"]],
   },
   weapon: {
     title: "Armes", route: "/armes", labels: WEAPON_STAT_LABELS, classParam: "wclass",
-    sorts: [["damage", "Dégâts"], ["name", "Nom"], ["accuracy", "Précision"], ["range", "Portée"], ["weapon_handling", "Maniabilité"], ["price", "Prix"]],
+    sorts: [["balanced", "Équilibrée"], ["damage", "Dégâts"], ["name", "Nom"], ["accuracy", "Précision"], ["range", "Portée"], ["weapon_handling", "Maniabilité"], ["price", "Prix"]],
     quick: [["free_only", "true", "Gratuites"]],
   },
 } as const;
 
+/** Grandes familles de véhicules -> classes (sous-familles). */
+export const VEHICLE_TYPES: { id: string; label: string; match: RegExp }[] = [
+  { id: "voitures", label: "Voitures", match: /.*/ },
+  { id: "motos", label: "Motos", match: /^motorcycles?$/i },
+  { id: "bateaux", label: "Bateaux", match: /^boats?$/i },
+  { id: "aerien", label: "Avions & hélicos", match: /^(planes?|helicopters?)$/i },
+  { id: "velos", label: "Vélos", match: /^cycles?$/i },
+  { id: "autres", label: "Autres", match: /^trains?$/i },
+];
+export const typeOf = (cls: string | null) => (VEHICLE_TYPES.slice(1).find((t) => t.match.test(cls ?? "")) ?? VEHICLE_TYPES[0]).id;
+const CLASS_FR: Record<string, string> = { Super: "Super", Sports: "Sportives", Muscle: "Muscle", Coupes: "Coupés", Sedans: "Berlines",
+  SUVs: "SUV", Pickups: "Pick-up", "Off-Road": "Tout-terrain", Compacts: "Compactes", Vans: "Vans", Commercial: "Utilitaires",
+  Emergency: "Urgence", Motorcycles: "Motos", Boats: "Bateaux", Planes: "Avions", Helicopters: "Hélicoptères", Cycles: "Vélos", Trains: "Trains" };
+export const classFr = (c: string | null) => (c ? CLASS_FR[c] ?? c : "Autres");
+
 const SHORT: Record<string, string> = { speed: "Vit", acceleration: "Acc", handling_road: "Man", handling_offroad: "TT", strength: "Sol", damage: "Dég", accuracy: "Préc", weapon_handling: "Man", range: "Port" };
 
-export function StatMini({ stats, keys, highlight }: { stats: Record<string, number | null>; keys: string[]; highlight?: string }) {
+export function StatMini({ stats, keys, highlight, onPick }: { stats: Record<string, number | null>; keys: string[]; highlight?: string; onPick?: (k: string) => void }) {
   return (
     <div className="statmini">
       {keys.slice(0, 4).map((k) => (
-        <div key={k} className={k === highlight ? "hl" : ""}><span>{SHORT[k] ?? k}</span><div className="bar"><i style={{ width: `${((stats[k] ?? 0) / 10) * 100}%` }} /></div><b>{stats[k] ?? "—"}</b></div>
+        <div key={k} className={k === highlight ? "hl" : ""}
+          onClick={onPick ? (e) => { e.preventDefault(); e.stopPropagation(); onPick(k); } : undefined}><span>{SHORT[k] ?? k}</span><div className="bar"><i style={{ width: `${((stats[k] ?? 0) / 10) * 100}%` }} /></div><b>{stats[k] ?? "—"}</b></div>
       ))}
     </div>
   );
@@ -43,7 +59,8 @@ export default function Catalog({ kind }: { kind: Kind }) {
   const [sheet, setSheet] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   useEffect(() => onBack(() => { if (sheet) { setSheet(false); return true; } return false; }), [sheet]);
-  const [sort, setSort] = useState<string>(() => sp.get("sort") ?? (kind === "vehicle" ? "profile" : "damage"));
+  const [sort, setSort] = useState<string>(() => sp.get("sort") ?? "balanced");
+  const vtype = kind === "vehicle" ? (sp.get("type") ?? "voitures") : null;
   const [weights, setWeights] = useState<Record<string, number>>({});
   useEffect(() => {
     if (kind === "vehicle") api.pref<Record<string, number>>("vehicle_weights").then((w) => setWeights(w ?? {})).catch(() => {});
@@ -60,10 +77,16 @@ export default function Catalog({ kind }: { kind: Kind }) {
   const q = (sp.get("q") ?? "").toLowerCase();
   const cls = sp.get(conf.classParam);
   const items = useMemo(() => {
-    let l = (all ?? []).filter((v) => !q || v.name.toLowerCase().includes(q) || (v.class ?? "").toLowerCase().includes(q));
-    const by = (k: string) => (a: Item, b: Item) => ((b.stats[k] ?? -1) as number) - ((a.stats[k] ?? -1) as number);
-    if (sort !== "name" && sort !== "profile" && sort !== "price") l = l.filter((v) => v.stats[sort] != null).concat(l.filter((v) => v.stats[sort] == null));
-    if (sort === "name") l = [...l].sort((a, b) => a.name.localeCompare(b.name));
+    let l = (all ?? []).filter((v) => !q || v.name.toLowerCase().includes(q) || (v.class ?? "").toLowerCase().includes(q))
+      .filter((v) => !vtype || typeOf(v.class) === vtype);
+    const keys = Object.keys(conf.labels);
+    const avg = (v: Item) => { const xs = keys.map((k) => v.stats[k]).filter((x): x is number => typeof x === "number"); return xs.length >= 3 ? xs.reduce((a, b) => a + b, 0) / xs.length : -1; };
+    // stat principale, puis moyenne des autres pour départager
+    const by = (k: string) => (a: Item, b: Item) => (((b.stats[k] ?? -1) as number) - ((a.stats[k] ?? -1) as number)) || (avg(b) - avg(a));
+    if (!["name", "profile", "price", "balanced"].includes(sort)) l = l.filter((v) => v.stats[sort] != null).concat(l.filter((v) => v.stats[sort] == null));
+    if (sort === "balanced") l = [...l].map((v) => ({ v, s: avg(v) })).sort((a, b) => b.s - a.s)
+      .map(({ v, s }) => (s >= 0 ? { ...v, score: { value: +s.toFixed(1), coverage: 1 } } : { ...v, score: null }));
+    else if (sort === "name") l = [...l].sort((a, b) => a.name.localeCompare(b.name));
     else if (sort === "profile") {
       // score « mon style » calculé localement (stats inconnues ignorées, jamais estimées)
       const sc = (v: Item) => {
@@ -76,11 +99,16 @@ export default function Catalog({ kind }: { kind: Kind }) {
     else if (sort === "price") l = [...l].sort((a, b) => (a.price ?? 1e12) - (b.price ?? 1e12));
     else l = [...l].sort(by(sort));
     return l;
-  }, [all, q, sort, weights]);
+  }, [all, q, sort, weights, vtype]);
   const classes = useMemo(() => {
     const n: Record<string, number> = {};
-    (all ?? []).forEach((v) => { if (v.class) n[v.class] = (n[v.class] ?? 0) + 1; });
+    (all ?? []).filter((v) => !vtype || typeOf(v.class) === vtype).forEach((v) => { if (v.class) n[v.class] = (n[v.class] ?? 0) + 1; });
     return Object.entries(n).sort((a, b) => b[1] - a[1]);
+  }, [all, vtype]);
+  const typeCount = useMemo(() => {
+    const n: Record<string, number> = {};
+    (all ?? []).forEach((v) => { const t = typeOf(v.class); n[t] = (n[t] ?? 0) + 1; });
+    return n;
   }, [all]);
 
   const set = (k: string, v: string | null) => { const n = new URLSearchParams(sp); v === null || v === "" ? n.delete(k) : n.set(k, v); setSp(n, { replace: true }); };
@@ -100,6 +128,13 @@ export default function Catalog({ kind }: { kind: Kind }) {
         <h1>{conf.title}</h1>
         <span className="muted small">{all ? `${items.length} / ${all.length}` : "…"}</span>
       </div>
+      {kind === "vehicle" && (
+        <div className="typebar">
+          {VEHICLE_TYPES.filter((t) => typeCount[t.id]).map((t) => (
+            <button key={t.id} className={vtype === t.id ? "on" : ""} onClick={() => { const n = new URLSearchParams(sp); n.set("type", t.id); n.delete("vclass"); setSp(n, { replace: true }); }}>
+              {t.label}<i>{typeCount[t.id]}</i></button>))}
+        </div>
+      )}
       <div className="rankbar">
         <span className="small muted"><ArrowDownUp size={14} style={{ verticalAlign: "-2px" }} /> Classer par</span>
         <div className="chiprow">
@@ -111,7 +146,7 @@ export default function Catalog({ kind }: { kind: Kind }) {
         {err && <p className="notice">{err}</p>}
         {all && items.length === 0 && (
           <div className="empty">Aucun résultat avec ces filtres.<br />
-            <button className="btn" style={{ marginTop: 12 }} onClick={() => { setSp(new URLSearchParams(), { replace: true }); setSort(kind === "vehicle" ? "profile" : "damage"); }}>Tout effacer</button></div>
+            <button className="btn" style={{ marginTop: 12 }} onClick={() => { setSp(new URLSearchParams(), { replace: true }); setSort("balanced"); }}>Tout effacer</button></div>
         )}
         {items.map((v, idx) => {
           const st = classStyle(v.class);
@@ -132,11 +167,11 @@ export default function Catalog({ kind }: { kind: Kind }) {
                     {v.score && <span className="badge score">{v.score.value}</span>}
                   </div>
                   <div className="small muted ellipsis">
-                    {v.class}{"drivetrain" in v && v.drivetrain ? ` · ${DRIVETRAIN_FR[v.drivetrain] ?? v.drivetrain}` : ""}
+                    {kind === "vehicle" ? classFr(v.class) : v.class}{"drivetrain" in v && v.drivetrain ? ` · ${DRIVETRAIN_FR[v.drivetrain] ?? v.drivetrain}` : ""}
                     {v.price != null ? ` · ${v.price.toLocaleString("fr-FR")} $` : ""}
                     {"free_hint" in v && v.free_hint ? " · gratuite ?" : ""}
                   </div>
-                  <StatMini stats={v.stats} keys={statKeys} highlight={sort} />
+                  <StatMini stats={v.stats} keys={statKeys} highlight={sort} onPick={setSort} />
                 </div>
               </Link>
               <button className={`selbtn ${on ? "on" : ""}`} onClick={() => toggleSel(v.id)} aria-label="Comparer">{on ? <Check size={18} /> : <Plus size={18} />}</button>
@@ -161,7 +196,7 @@ export default function Catalog({ kind }: { kind: Kind }) {
           ))}
           {classes.map(([c, n]) => { const s = classStyle(c); return (
             <button key={c} className={`chip ${cls === c ? "on" : ""}`} onClick={() => set(conf.classParam, cls === c ? null : c)}>
-              <FamIcon f={s} size={14} /> {c} <span className="muted small">{n}</span></button>); })}
+              <FamIcon f={s} size={14} /> {kind === "vehicle" ? classFr(c) : c} <span className="muted small">{n}</span></button>); })}
         </div>
         <div className="row" style={{ flexWrap: "nowrap", gap: 8 }}>
           <div className="searchbar grow">
