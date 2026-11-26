@@ -11,7 +11,9 @@ import secrets
 import threading
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from typing import Any
+
+from fastapi import Body, Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -327,7 +329,7 @@ def get_pref(key: str):
 
 
 @app.put("/api/prefs/{key}", dependencies=[Depends(auth)])
-def put_pref(key: str, value: dict | list | str | float | int):
+def put_pref(key: str, value: Any = Body(...)):   # corps JSON brut (pas de formulaire)
     catalog.set_pref(conn(), key, value)
     return catalog.get_pref(conn(), key)
 

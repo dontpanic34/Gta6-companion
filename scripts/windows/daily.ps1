@@ -1,4 +1,4 @@
-# Tâche quotidienne : sauvegarde, puis synchronisation de toutes les sources.
+﻿# Tâche quotidienne : sauvegarde, puis synchronisation de toutes les sources.
 $ErrorActionPreference = "Continue"
 $root = Resolve-Path "$PSScriptRoot\..\.."
 Set-Location "$root\backend"

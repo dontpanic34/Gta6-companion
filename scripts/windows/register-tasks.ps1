@@ -1,4 +1,4 @@
-# Enregistre 2 tâches planifiées : synchro quotidienne (04:17) et serveur au démarrage de session.
+﻿# Enregistre 2 tâches planifiées : synchro quotidienne (04:17) et serveur au démarrage de session.
 $ErrorActionPreference = "Stop"
 $here = $PSScriptRoot
 $daily = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$here\daily.ps1`""
