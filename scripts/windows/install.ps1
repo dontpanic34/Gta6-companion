@@ -27,3 +27,4 @@ if (-not [Environment]::GetEnvironmentVariable("XBL_API_KEY", "User")) {
   if ($k) { [Environment]::SetEnvironmentVariable("XBL_API_KEY", $k, "User") }
 }
 Write-Host "Installation terminée. Lancez register-tasks.ps1 pour l'automatisation."
+Set-Location $PSScriptRoot
