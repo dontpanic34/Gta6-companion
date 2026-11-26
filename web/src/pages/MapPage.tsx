@@ -9,7 +9,7 @@ import { onBack } from "../back";
 import { createTileLayer, distance, gameToLatLng, latLngToGame, LEONIDA_BOUNDS, TILE_BOUNDS } from "../map/leonida";
 
 const STORE = "map_state_v2";
-interface MapState { families: string[]; hideDone: boolean; me: [number, number] | null; zone: string | null }
+interface MapState { families: string[]; hideDone: boolean; approx?: boolean; me: [number, number] | null; zone: string | null }
 const load = (): MapState => {
   try { return { families: [], hideDone: false, me: null, zone: null, ...JSON.parse(localStorage.getItem(STORE) ?? "{}") }; }
   catch { return { families: [], hideDone: false, me: null, zone: null }; }
@@ -87,7 +87,7 @@ export default function MapPage() {
   useEffect(() => {
     if (!el.current || map.current) return;
     const m = L.map(el.current, {
-      crs: L.CRS.Simple, zoomControl: false, minZoom: 0, maxZoom: 7, attributionControl: true,
+      crs: L.CRS.Simple, zoomControl: false, minZoom: 0, maxZoom: 6.5, attributionControl: true,
       // bornes larges : on peut dézoomer jusqu'à voir toute la carte sans retour forcé
       maxBounds: TILE_BOUNDS.pad(1.2), maxBoundsViscosity: 0.3, zoomSnap: 0.25, preferCanvas: true,
     });
@@ -119,8 +119,10 @@ export default function MapPage() {
     if (fam.hidden && !st.families.includes(fam.id)) return false;          // masqué par défaut
     if (st.families.filter((f) => f !== "extras").length && !st.families.includes(fam.id)) return false;
     if (st.hideDone && (p.status === "done" || p.status === "discovered")) return false;
+    // emplacements seulement « dans la zone » : placés au hasard autour du quartier -> hors carte par défaut
+    if (!st.approx && p.precision !== "exact" && query.length < 2) return false;
     return matches(p);
-  }), [places, st.families, st.hideDone, st.zone, query]);
+  }), [places, st.families, st.hideDone, st.approx, st.zone, query]);
 
   const results = useMemo(() => query.length < 2 ? [] : filtered.slice(0, 40), [filtered, query]);
 
@@ -383,6 +385,7 @@ export default function MapPage() {
           <div className="row"><h2 style={{ margin: 0 }}>Filtres</h2><span className="spacer" />
             <button className="btn ghost small" onClick={() => { setSt((s) => ({ ...s, families: [], hideDone: false, zone: null })); setQ(""); }}>Tout afficher</button></div>
           <label className="switch"><input type="checkbox" checked={st.hideDone} onChange={(e) => setSt((s) => ({ ...s, hideDone: e.target.checked }))} /> Masquer ce que j'ai déjà trouvé</label>
+          <label className="switch"><input type="checkbox" checked={!!st.approx} onChange={(e) => setSt((s) => ({ ...s, approx: e.target.checked }))} /> Afficher les emplacements approximatifs</label>
           <h4 className="sheet-h">Zone</h4>
           <div className="row">
             <button className={`chip ${!st.zone ? "on" : ""}`} onClick={() => setSt((s) => ({ ...s, zone: null }))}>Toute Leonida</button>

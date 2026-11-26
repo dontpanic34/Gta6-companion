@@ -17,17 +17,17 @@ export const TILE_BOUNDS = L.latLngBounds([-(4 * 256), 0], [0, 3 * 256]);
 // Emprise utile (île + Keys), pour le cadrage initial
 export const LEONIDA_BOUNDS = L.latLngBounds(gameToLatLng(-9000, -11500) as L.LatLngTuple, gameToLatLng(6500, 9500) as L.LatLngTuple);
 
-/** Tuiles embarquées (z0-5) ; au-delà, le PC sert le zoom 6 s'il est joignable. */
+/** Tuiles embarquées z0-6 (gtadb n'existe pas au-delà du zoom 6). */
 export function createTileLayer(serverBase: string): L.TileLayer {
   const Layer = L.TileLayer.extend({
     getTileUrl(this: L.TileLayer, c: L.Coords) {
       const z = c.z;
       if (z <= 5) return `tiles/day/${z}/${z},${c.y},${c.x}.jpg`;
-      return `${serverBase}/tiles-hd/day/${z}/${z},${c.y},${c.x}.jpg`;
+      return `tiles/day/6/6,${c.y},${c.x}.webp`;   // zoom 6 embarqué (WebP) : net même hors ligne
     },
   });
   return new (Layer as unknown as new (u: string, o: L.TileLayerOptions) => L.TileLayer)("", {
-    tileSize: 256, minZoom: 0, maxNativeZoom: serverBase ? 6 : 5, maxZoom: 7,
+    tileSize: 256, minZoom: 0, maxNativeZoom: 6, maxZoom: 7,   // 7 : arrondi du zoom 6,5 de la carte (sinon les tuiles disparaissent)
     bounds: TILE_BOUNDS, noWrap: true, keepBuffer: 4,
     attribution: 'Fond de carte © <a href="https://gtadb.org">gtadb.org</a> (CC BY 4.0)',
   });
