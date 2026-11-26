@@ -2,7 +2,7 @@
 /** Mode hors ligne : répond aux lectures depuis l'instantané embarqué (filtré au niveau
  *  anti-spoiler le plus strict) et garde les statuts personnels sur le téléphone. */
 type Locked = { hints: string[]; solution: string[]; video: unknown; name: string | null };
-type Story = { chapters: { num: number; title: string }[]; missions: { id: string; name: string; alias: string; kind: string; name_safe: boolean; chapter: number | null }[];
+type Story = { chapters: { num: number; title: string }[]; missions: { id: string; name: string; alias: string; kind: string; name_safe: boolean; chapter: number | null; closes_count?: number }[];
   characters: { id: string; name: string; chapter: number | null }[] };
 type Snap = { locked?: Record<string, Locked>; story?: Story;
   vehicles: any[]; weapons: any[]; places: any[]; facets: unknown; details: Record<string, any>;
@@ -52,6 +52,7 @@ function options(s: Snap) {
     chapters: st.chapters.map((c) => ({ num: c.num, title: c.num <= p.chapter ? c.title : null })),
     missions: st.missions.filter((m) => m.chapter == null || m.chapter <= p.chapter)
       .map((m) => ({ id: m.id, kind: m.kind, chapter: m.chapter, done: p.completed_missions.includes(m.id),
+        closes_count: p.completed_missions.includes(m.id) ? 0 : m.closes_count ?? 0,
         name: m.name_safe || rv[m.id]?.name ? m.name : m.alias }))
       .sort((a, b) => (a.chapter ?? 99) - (b.chapter ?? 99)),
     characters: st.characters.filter((c) => c.chapter == null || c.chapter <= p.chapter)

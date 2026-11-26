@@ -46,7 +46,7 @@ def build(db_path: str) -> dict:
         story = {
             "chapters": [{"num": r[0], "title": r[1]} for r in c.execute("SELECT num, title FROM chapter ORDER BY num")],
             "missions": [{"id": r[0], "name": r[1], "alias": r[2], "kind": r[3], "name_safe": r[4] == "safe",
-                          "chapter": (json.loads(r[5]) if r[5] else None)}
+                          "chapter": (json.loads(r[5]) if r[5] else None), "closes_count": api.missable_count(c, r[0])}
                          for r in c.execute("""SELECT e.id, e.canonical_name, e.neutral_alias, e.kind, e.name_status,
                               (SELECT value_json FROM claim WHERE entity_id=e.id AND field='chapter' AND status<>'obsolete')
                               FROM entity e WHERE e.kind IN ('mission','side_mission') AND e.spoiler_status='evaluated'""")],

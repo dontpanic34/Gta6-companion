@@ -75,6 +75,15 @@ def put_progress(p: ProgressIn):
     return get_progress()
 
 
+def missable_count(c, mission_id: str) -> int:
+    """Nombre de contenus manquables NON faits dont l'accès se ferme à cette mission."""
+    r = c.execute("SELECT value_json FROM claim WHERE entity_id=? AND field='closes_access' AND status<>'obsolete'", (mission_id,)).fetchone()
+    if not r:
+        return 0
+    done = {x[0] for x in c.execute("SELECT entity_id FROM user_item_status WHERE status IN ('done','discovered')")}
+    return len([i for i in json.loads(r[0]) if i not in done])
+
+
 @app.get("/api/progress/options", dependencies=[Depends(auth)])
 def progress_options():
     """Ce que le joueur peut cocher, filtré par sa progression (aucun titre de chapitre futur)."""
@@ -84,7 +93,8 @@ def progress_options():
     met = {r[0] for r in c.execute("SELECT entity_id FROM progress_character")}
     chapters = [{"num": r[0], "title": r[1] if r[0] <= cur else None} for r in c.execute("SELECT num, title FROM chapter ORDER BY num")]
     missions = [{"id": r["id"], "name": r["display_name"], "kind": r["kind"],
-                 "chapter": (json.loads(r["ch"]) if r["ch"] else None), "done": r["id"] in done}
+                 "chapter": (json.loads(r["ch"]) if r["ch"] else None), "done": r["id"] in done,
+                 "closes_count": 0 if r["id"] in done else missable_count(c, r["id"])}
                 for r in c.execute("""SELECT v.id, v.display_name, v.kind,
                      (SELECT value_json FROM claim WHERE entity_id=v.id AND field='chapter' AND status<>'obsolete') AS ch
                      FROM visible_entity v WHERE v.kind IN ('mission','side_mission')
@@ -177,6 +187,7 @@ def get_entity(entity_id: str):
     if not d:
         raise HTTPException(404, "Introuvable ou masqué par la protection anti-spoiler")
     d["has_solution"] = bool(c.execute("SELECT 1 FROM activity_content WHERE entity_id=? AND level=3", (entity_id,)).fetchone())
+    d["closes_count"] = missable_count(c, entity_id)
     st = c.execute("SELECT status FROM user_item_status WHERE entity_id=?", (entity_id,)).fetchone()
     d["status"] = st[0] if st else None
     row = {"name": d["name"], "category": d.get("category")}

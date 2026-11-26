@@ -46,6 +46,13 @@ export default function EntityPage() {
         </div>
         <button className={`donebtn big ${done ? "on" : ""}`} onClick={toggleDone} aria-label="Fait"><Check size={24} /><span>{done ? "Fait" : "À faire"}</span></button>
       </div>
+      {!!e.closes_count && !done && (
+        <div className="missable">
+          <TriangleAlert size={22} />
+          <div><b>Avant de lancer cette mission</b><br />
+            {e.closes_count > 1 ? `${e.closes_count} choses peuvent` : "Quelque chose peut"} devenir définitivement inaccessible. Explorez et terminez ce qui vous tient à cœur avant de la commencer.</div>
+        </div>
+      )}
       {e.missable_warning && <p className="notice"><TriangleAlert size={15} style={{ verticalAlign: "-3px" }} /> Peut devenir définitivement inaccessible.</p>}
 
       <div className="card" style={{ marginTop: 14 }}>

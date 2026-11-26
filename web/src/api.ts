@@ -26,7 +26,7 @@ export interface XboxSummary { total: number; unlocked_count: number; locked_cou
 
 export interface ProgressOptions {
   chapter: number; max_chapter: number; chapters: { num: number; title: string | null }[];
-  missions: { id: string; name: string; kind: string; chapter: number | null; done: boolean }[];
+  missions: { id: string; name: string; kind: string; chapter: number | null; done: boolean; closes_count?: number }[];
   characters: { id: string; name: string; met: boolean }[];
 }
 
@@ -54,7 +54,7 @@ export interface EntityFull {
   reliability: string; missable_warning: boolean; hints_remaining: number; media: string[];
   claims: { field: string; value_json: string; value_kind: string; source_id: string; source_url: string | null; status: string }[];
   content: { level: number; ord: number; body: string }[];
-  has_solution?: boolean; status?: string | null;
+  has_solution?: boolean; status?: string | null; closes_count?: number;
   linked?: { id: string; image: string | null; stats: Record<string, number | null> };
   location?: { x: number; y: number; precision: string } | null;
 }

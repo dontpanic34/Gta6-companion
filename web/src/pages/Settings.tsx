@@ -65,7 +65,7 @@ export default function Settings() {
           <div className="checklist">
             {list.map((m) => (
               <button key={m.id} className={`checkrow ${m.done ? "on" : ""}`} onClick={() => api.setMission(m.id, !m.done).then(setO)}>
-                <span className="box">{m.done && <Check size={16} />}</span><span className="grow" style={{ textAlign: "left" }}>{m.name}</span>
+                <span className="box">{m.done && <Check size={16} />}</span><span className="grow" style={{ textAlign: "left" }}>{m.name}{!!m.closes_count && <span className="badge warn" style={{ marginLeft: 8 }}>⚠</span>}</span>
               </button>
             ))}
           </div>

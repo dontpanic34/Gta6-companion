@@ -506,3 +506,33 @@ def protect_story_names(conn: sqlite3.Connection) -> int:
         n += conn.execute("""UPDATE claim SET spoiler_status='unknown' WHERE field='source_page' AND spoiler_status='evaluated'
                              AND entity_id IN (SELECT id FROM entity WHERE name_status <> 'safe')""").rowcount
     return n
+
+
+def apply_missables(conn: sqlite3.Connection) -> int:
+    """Relie les contenus manquables à la mission qui en ferme l'accès (table + détection
+    « avant la mission X »). La mission reçoit un compteur, jamais le détail (anti-spoiler)."""
+    import re as _re
+    mapping = json.loads((Path(__file__).parent / "data" / "missables.json").read_text(encoding="utf-8"))
+    titles = {r[1].lower(): r[0] for r in conn.execute("SELECT id, canonical_name FROM entity WHERE kind IN ('mission','side_mission')")}
+    links: dict[str, set[str]] = {}
+    for eid, conf in mapping.items():
+        if not eid.startswith("_") and isinstance(conf, dict) and conf.get("closes_at"):
+            links.setdefault(conf["closes_at"], set()).add(eid)
+    # détection automatique dans les textes : « avant (la mission) X » / « avant de lancer X »
+    for eid, body in conn.execute("""SELECT a.entity_id, a.body FROM activity_content a JOIN entity e ON e.id = a.entity_id
+                                     WHERE e.category LIKE '%anquable%' OR e.missable = 1""").fetchall():
+        for m in _re.finditer(r"avant (?:la mission |de lancer |de terminer )?[«\"]?\s*([A-Z][\w' !?&-]{2,40}?)\s*[»\"]?(?=[.,;:)]|\s(?:et|ou|du|de)\b|$)", body):
+            mid = titles.get(m.group(1).strip().lower())
+            if mid:
+                links.setdefault(mid, set()).add(eid)
+    with conn:
+        conn.execute("DELETE FROM claim WHERE field='closes_access'")
+        for mid, items in links.items():
+            if not conn.execute("SELECT 1 FROM entity WHERE id=?", (mid,)).fetchone():
+                continue
+            conn.execute("INSERT INTO claim(entity_id,field,value_json,value_kind,source_id,status,spoiler_status) "
+                         "VALUES (?,?,?,?,?,?,?)", (mid, "closes_access", json.dumps(sorted(items)), "community",
+                                                     "manual", "probable", "unknown"))   # jamais exposé : seul le compte l'est
+            for i in items:
+                conn.execute("UPDATE entity SET missable=1 WHERE id=?", (i,))
+    return sum(len(v) for v in links.values())

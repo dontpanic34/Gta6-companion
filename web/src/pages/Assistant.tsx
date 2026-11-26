@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowUp, CarFront, Crosshair, GitCompare, MapPinned, Sparkles } from "lucide-react";
+import { ArrowUp, CarFront, Crosshair, GitCompare, MapPinned, Mic, Sparkles, Volume2, VolumeX } from "lucide-react";
+import { canSpeak, listen, speak, voiceAvailable } from "../device";
 import { api, ChatAction, ChatReply, entityLink } from "../api";
 
 interface Msg { role: "user" | "assistant"; content: string; reply?: ChatReply }
@@ -28,13 +29,25 @@ export default function Assistant() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const end = useRef<HTMLDivElement>(null);
+  const [hasMic, setHasMic] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [voiceOut, setVoiceOut] = useState(() => { try { return localStorage.getItem("assistant_voice") === "1"; } catch { return false; } });
+  useEffect(() => { voiceAvailable().then(setHasMic); }, []);
+  useEffect(() => { try { localStorage.setItem("assistant_voice", voiceOut ? "1" : "0"); } catch { /* ignore */ } }, [voiceOut]);
+  const talk = async () => {
+    if (listening) return;
+    setListening(true);
+    try { const t = await listen(); if (t) await send(t, true); }
+    catch (e) { setMsgs((m) => [...m, { role: "assistant", content: (e as Error).message }]); }
+    finally { setListening(false); }
+  };
 
   useEffect(() => {
     try { localStorage.setItem(KEY, JSON.stringify(msgs.slice(-40))); } catch { /* ignore */ }
     end.current?.scrollIntoView({ behavior: "smooth" });
   }, [msgs]);
 
-  const send = async (text: string) => {
+  const send = async (text: string, spoken = false) => {
     const t = text.trim(); if (!t || busy) return;
     setInput(""); setBusy(true);
     const history = msgs.map(({ role, content }) => ({ role, content }));
@@ -42,6 +55,7 @@ export default function Assistant() {
     try {
       const reply = await api.chat(t, history);
       setMsgs((m) => [...m, { role: "assistant", content: reply.text, reply }]);
+      if (voiceOut || spoken) speak(reply.text);   // question posée à la voix -> réponse lue à voix haute
     } catch (e) {
       const msg = (e as Error).message.includes("PC") || (e as Error).message.includes("hors ligne")
         ? "L'assistant tourne sur votre PC. Connectez-vous (Réglages → Connexion au PC) via Tailscale pour discuter."
@@ -62,11 +76,13 @@ export default function Assistant() {
       <div className="chat-scroll">
         <div className="row" style={{ padding: "8px 2px 4px" }}>
           <h1 style={{ margin: 0 }}>Assistant</h1><span className="spacer" />
-          {msgs.length > 0 && <button className="chip" onClick={() => setMsgs([])}>Nouvelle discussion</button>}
+          {canSpeak() && <button className={`chip ${voiceOut ? "on" : ""}`} onClick={() => setVoiceOut(!voiceOut)} aria-label="Lecture vocale">{voiceOut ? <Volume2 size={15} /> : <VolumeX size={15} />}</button>}
+          {msgs.length > 0 && <button className="chip" onClick={() => setMsgs([])}>Nouvelle</button>}
         </div>
         {msgs.length === 0 && (
           <div className="chat-empty">
             <Sparkles size={28} color="var(--accent)" />
+            {hasMic && <button className="bigmic" onClick={talk}><Mic size={34} /><span>{listening ? "Je vous écoute…" : "Appuyez et parlez"}</span></button>}
             <p>Demandez-moi quoi faire dans une zone, quelle voiture choisir, où trouver une arme… Je ne révèle jamais la suite d'une quête.</p>
             <div style={{ display: "grid", gap: 8 }}>
               {SUGGESTIONS.map((s) => <button key={s} className="suggest" onClick={() => send(s)}>{s}</button>)}
@@ -100,7 +116,8 @@ export default function Assistant() {
         <div ref={end} />
       </div>
       <form className="composer" onSubmit={(e) => { e.preventDefault(); send(input); }}>
-        <input placeholder="Posez votre question…" value={input} onChange={(e) => setInput(e.target.value)} />
+        {hasMic && <button type="button" className={`mic ${listening ? "on" : ""}`} onClick={talk} aria-label="Parler"><Mic size={22} /></button>}
+        <input placeholder={listening ? "Je vous écoute…" : "Posez votre question…"} value={input} onChange={(e) => setInput(e.target.value)} />
         <button className="send" disabled={!input.trim() || busy} aria-label="Envoyer"><ArrowUp size={20} /></button>
       </form>
     </div>

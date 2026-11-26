@@ -61,7 +61,7 @@ export default function Encyclopedia() {
                 <div key={m.id} className="vrow" style={{ alignItems: "center" }}>
                   <Link to={entityLink(m.id)} className="vrow-main" style={{ alignItems: "center" }}>
                     <span className="famicon" style={{ background: m.done ? "var(--teal)" : "var(--surface-2)" }}>{m.done ? <Check size={16} color="#140a24" /> : <ChevronRight size={16} />}</span>
-                    <span className="title grow" style={{ textAlign: "left" }}>{m.name}</span>
+                    <span className="title grow" style={{ textAlign: "left" }}>{m.name}{!!m.closes_count && <span className="badge warn" style={{ marginLeft: 8 }}>⚠ manquable avant</span>}</span>
                   </Link>
                   <button className={`selbtn ${m.done ? "on" : ""}`} onClick={() => api.setMission(m.id, !m.done).then(setO)} aria-label="Faite"><Check size={18} opacity={m.done ? 1 : 0.25} /></button>
                 </div>

@@ -150,6 +150,7 @@ def main() -> None:
         except Exception as e:
             log.exception("Source %s en échec", src)
             report = {"source": src, "fatal": str(e), "created": 0, "changed": [], "quarantined": [], "errors": []}
+        importer.apply_missables(conn)
         importer.protect_story_names(conn)   # après chaque source : aucun nom protégé dans un texte affiché
         out = Path(a.report_dir) / f"sync-{src}-{time.strftime('%Y%m%d-%H%M%S')}.json"
         out.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")

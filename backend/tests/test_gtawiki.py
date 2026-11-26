@@ -79,3 +79,21 @@ def test_texts_citing_protected_characters_are_hidden():
     importer.protect_story_names(c)
     d = spoiler.get_entity(c, "vehicle:trotter:std")
     assert all(x["field"] != "description_en" for x in d["claims"])
+
+
+def test_missable_warning_is_count_only(tmp_path, monkeypatch):
+    import json as _j
+    from companion import api
+    monkeypatch.setattr(api, "DB_PATH", str(tmp_path / "m.db")); monkeypatch.setattr(api, "TOKEN", None)
+    api._local.conn = None
+    c = api.conn()
+    importer.import_missions(c, gtawiki.parse_missions(MISSIONS.replace("Trahison_CANARI", "Day_Release").replace("Trahison CANARI", "Day Release")))
+    c.execute("INSERT INTO entity(id,kind,canonical_name,spoiler_status) VALUES ('secret:jason-house-projects','easter_egg','Projets CANARI','unknown')")
+    c.commit()
+    importer.apply_missables(c)
+    from companion.spoiler import Progress, set_progress
+    set_progress(c, Progress(chapter=2))
+    d = api.get_entity("mission:day-release")
+    assert d["closes_count"] == 1
+    assert "jason-house-projects" not in _j.dumps(d) and "CANARI" not in _j.dumps(d)
+    api._local.conn = None

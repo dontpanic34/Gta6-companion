@@ -1,0 +1,5 @@
+{
+  "_doc": "Contenus manquables -> mission qui en FERME l'accès. Affiché sans dire quoi. Compléter au fil des découvertes.",
+  "secret:jason-house-projects": {"closes_at": "mission:day-release"},
+  "secret:starlight-motel-chapter-1-missable-items": {"closes_at": "mission:checking-out"}
+}
