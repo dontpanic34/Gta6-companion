@@ -659,6 +659,8 @@ def import_gtatown(conn: sqlite3.Connection, data: dict) -> dict:
             xy = gt.to_game(e.get("map_x"), e.get("map_y"))
             if not xy:
                 continue
+            if re.match(r"ATM\b", e["name"]):   # distributeurs : rangés avec les autres, masqués de la carte
+                cat = "Distributeur"
             nname = gazetteer_norm(e["name"])
             hit = near(xy[0], xy[1], cat, nname)
             if hit:
