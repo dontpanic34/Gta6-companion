@@ -107,6 +107,26 @@ def missable_count(c, mission_id: str) -> int:
     return len([i for i in json.loads(r[0]) if i not in done])
 
 
+# Noms de zones façon jeu : 1 = comtés / grandes villes (carte entière), 2 = villes / îles, 3 = quartiers
+TIER1 = {"Vice City", "Port Gellhorn", "Kelly County", "Mariana County", "Lummox County", "Leonard County", "Vice-Dale County",
+         "Grassrivers", "Ambrosia", "Leonida Keys", "Vice Beach"}
+ZONE_JUNK = ("près de", "endroit", "partout", "leonida", "?")
+
+
+@app.get("/api/zones", dependencies=[Depends(auth)])
+def zones():
+    from . import gazetteer
+    z = gazetteer.build(conn(), Path(DB_PATH).resolve().parent / "gtadb-landmarks.json")
+    out = []
+    for zone in z.values():
+        name = zone.name
+        if any(j in name.lower() for j in ZONE_JUNK) or "," in name or zone.n < 2:
+            continue
+        tier = 1 if name in TIER1 else 2 if zone.level in ("area", "region") else 3
+        out.append({"name": name, "x": round(zone.x), "y": round(zone.y), "tier": tier, "weight": zone.n})
+    return sorted(out, key=lambda r: (r["tier"], -r["weight"]))
+
+
 @app.get("/api/news", dependencies=[Depends(auth)])
 def news(days: int = 1, limit: int = 60):
     """Découvertes et corrections récentes, visibles selon la progression.

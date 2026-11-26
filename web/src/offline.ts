@@ -89,6 +89,7 @@ export async function offlineGet(path: string): Promise<unknown> {
   if (p === "/api/health") return { ok: true, offline: true };
   if (p === "/api/progress") return progress();
   if (p === "/api/progress/options") return options(s);
+  if (p === "/api/zones") return (s as any).zones ?? [];
   if (p === "/api/news") {
     const days = +(q.get("days") ?? 1), since = Date.now() - days * 864e5;
     const items = (s.news?.items ?? []).filter((i: { created_at: string }) => Date.parse(i.created_at.replace(" ", "T") + "Z") >= since);

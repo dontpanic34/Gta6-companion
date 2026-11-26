@@ -45,6 +45,8 @@ export default function MapPage() {
   const map = useRef<L.Map | null>(null);
   const layer = useRef<L.LayerGroup | null>(null);
   const over = useRef<L.LayerGroup | null>(null);
+  const zoneLayer = useRef<L.LayerGroup | null>(null);
+  const [zoneNames, setZoneNames] = useState<{ name: string; x: number; y: number; tier: number }[]>([]);
   const [places, setPlaces] = useState<Place[]>([]);
   const [st, setSt] = useState<MapState>(load);
   const [q, setQ] = useState("");
@@ -69,6 +71,7 @@ export default function MapPage() {
   const flash = (t: string) => { setToast(t); setTimeout(() => setToast(""), 2200); };
   useEffect(() => { try { localStorage.setItem(STORE, JSON.stringify(st)); } catch { /* ignore */ } }, [st]);
   useEffect(() => { api.places(new URLSearchParams()).then(setPlaces).catch((e) => flash(e.message)); }, []);
+  useEffect(() => { api.zones().then(setZoneNames).catch(() => {}); }, []);
 
   // --- carte
   useEffect(() => {
@@ -81,6 +84,9 @@ export default function MapPage() {
     createTileLayer(getBaseUrl()).addTo(m);
     const fx = sp.get("x"), fy = sp.get("y");
     if (fx && fy) m.setView(gameToLatLng(+fx, +fy), +(sp.get("z") ?? 5)); else m.fitBounds(LEONIDA_BOUNDS);
+    // noms de zones : sous les icônes, jamais cliquables
+    m.createPane("zones"); const zp = m.getPane("zones")!; zp.style.zIndex = "450"; zp.style.pointerEvents = "none";
+    zoneLayer.current = L.layerGroup([], { pane: "zones" }).addTo(m);
     layer.current = L.layerGroup().addTo(m);
     over.current = L.layerGroup().addTo(m);
     const sync = () => setView({ z: m.getZoom(), b: m.getBounds().pad(0.25) });
@@ -151,6 +157,20 @@ export default function MapPage() {
       }
     });
   }, [inView, view.z, picked?.id]);
+
+  // --- noms de zones, comme en jeu : grands noms dézoomé, quartiers en zoomant
+  useEffect(() => {
+    const g = zoneLayer.current; if (!g) return;
+    g.clearLayers();
+    const z = view.z;
+    const tiers = z < 2.6 ? [1] : z < 3.8 ? [1, 2] : z < 4.8 ? [2, 3] : [3];
+    zoneNames.filter((n) => tiers.includes(n.tier) && (!view.b || view.b.contains(gameToLatLng(n.x, n.y)))).forEach((n) => {
+      L.marker(gameToLatLng(n.x, n.y), {
+        pane: "zones", interactive: false, keyboard: false,
+        icon: L.divIcon({ className: "zone-wrap", html: `<span class="zone-lbl t${n.tier}">${n.name}</span>`, iconSize: [0, 0] }),
+      }).addTo(g);
+    });
+  }, [zoneNames, view]);
 
   // --- surcouche : ma position + cercle de zone du lieu sélectionné
   useEffect(() => {

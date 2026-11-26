@@ -114,3 +114,11 @@ html, body, .app, .catalog, .cat-list { overflow-x: hidden; max-width: 100vw; }
 .typebar button.on { background: var(--neon); color: #fff; border-color: transparent; }
 .statmini > div { cursor: pointer; border-radius: 6px; }
 .statmini > div:active { background: #ff3d8b22; }
+/* Noms de zones façon jeu */
+.zone-wrap { background: none; border: 0; }
+.zone-lbl { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; text-transform: uppercase; color: #fff;
+  font-family: var(--display); letter-spacing: .08em; pointer-events: none;
+  text-shadow: -2px -2px 0 #140a24cc, 2px -2px 0 #140a24cc, -2px 2px 0 #140a24cc, 2px 2px 0 #140a24cc, 0 3px 8px #000a; }
+.zone-lbl.t1 { font-size: 26px; letter-spacing: .12em; }
+.zone-lbl.t2 { font-size: 18px; }
+.zone-lbl.t3 { font-size: 14px; opacity: .8; letter-spacing: .06em; }

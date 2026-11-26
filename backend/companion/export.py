@@ -57,6 +57,7 @@ def build(db_path: str) -> dict:
         return {
             "version": 3,
             "news": api.news(days=30, limit=200),
+            "zones": api.zones(),
             "story": story,
             "locked": locked,
             "vehicles": catalog.vehicles(c),

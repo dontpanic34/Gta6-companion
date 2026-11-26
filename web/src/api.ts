@@ -120,6 +120,7 @@ export const api = {
   setMission: (id: string, value: boolean) => req<ProgressOptions>(`/api/progress/mission/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify({ value }) }),
   setCharacter: (id: string, value: boolean) => req<ProgressOptions>(`/api/progress/character/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify({ value }) }),
   news: (days: number) => req<News>(`/api/news?days=${days}`),
+  zones: () => req<{ name: string; x: number; y: number; tier: number }[]>("/api/zones"),
   garage: () => req<{ id: string; name: string; status: string }[]>("/api/garage"),
   setStatus: (id: string, status: string) => req(`/api/status/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify({ status }) }),
 };
