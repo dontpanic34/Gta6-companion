@@ -23,12 +23,18 @@ export function FamIcon({ f, size = 16, color }: { f: Family | { icon: Family["i
     strokeLinecap="round" strokeLinejoin="round" dangerouslySetInnerHTML={{ __html: iconInner(f.icon) }} />;
 }
 
+/** Taille selon l'importance : une arme ou un véhicule rare ressort, un easter egg ou un saut reste discret. */
+const FAMILY_SCALE: Record<string, number> = { weapons: 1.15, vehicles: 1.15, garages: 1, collect: 0.9, stunts: 0.85,
+  activities: 0.8, secrets: 0.75, extras: 0.7 };
+function importance(p: Place) { return FAMILY_SCALE[familyOf(p.category, isSecret(p)).id] ?? 0.7; }
+
 const iconCache = new Map<string, L.DivIcon>();
 function markerIcon(p: Place, size: number, withLabel: boolean, selected: boolean) {
   const done = p.status === "done" || p.status === "discovered";
   const key = withLabel || selected ? "" : `${p.category}|${isSecret(p)}|${size}|${done}`;
   if (key && iconCache.has(key)) return iconCache.get(key)!;
   const st = categoryStyle(p.category, isSecret(p));
+  size = Math.round(size * importance(p));
   const px = categoryImage(p.category) ? Math.round(size * 1.35) : size;   // icônes illustrées un peu plus grandes
   const icon = L.divIcon({
     html: markerHtml(st, selected ? size + 8 : size, done, withLabel ? p.name : undefined, p.category),
@@ -70,7 +76,11 @@ export default function MapPage() {
   }), [filters, nearbyOpen, picked, searching]);
   const flash = (t: string) => { setToast(t); setTimeout(() => setToast(""), 2200); };
   useEffect(() => { try { localStorage.setItem(STORE, JSON.stringify(st)); } catch { /* ignore */ } }, [st]);
-  useEffect(() => { api.places(new URLSearchParams()).then(setPlaces).catch((e) => flash(e.message)); }, []);
+  useEffect(() => { api.places(new URLSearchParams()).then((l) => {
+    setPlaces(l);
+    const f = sp.get("focus"); const hit = f && l.find((p) => p.id === f || (p as any).linked_id === f);
+    if (hit) { setPicked(hit); map.current?.panBy([0, 170], { animate: false }); }   // remonte le point au-dessus de la fiche
+  }).catch((e) => flash(e.message)); }, []);
   useEffect(() => { api.zones().then(setZoneNames).catch(() => {}); }, []);
 
   // --- carte
@@ -129,7 +139,9 @@ export default function MapPage() {
   }, [st.zone, query, filtered.length]);
 
   // --- marqueurs (seulement ceux à l'écran, libellés à fort zoom)
-  const inView = useMemo(() => view.b ? filtered.filter((p) => view.b!.contains(gameToLatLng(p.x!, p.y!))) : [], [filtered, view]);
+  // l'élément ouvert depuis une fiche (« Voir sur la carte ») reste affiché même si ses filtres sont masqués
+  const shown = useMemo(() => picked && picked.x != null && !filtered.some((p) => p.id === picked.id) ? [...filtered, picked] : filtered, [filtered, picked]);
+  const inView = useMemo(() => view.b ? shown.filter((p) => view.b!.contains(gameToLatLng(p.x!, p.y!))) : [], [shown, view]);
   useEffect(() => {
     const g = layer.current; if (!g) return;
     g.clearLayers();

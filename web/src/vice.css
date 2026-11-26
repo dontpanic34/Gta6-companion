@@ -122,3 +122,8 @@ html, body, .app, .catalog, .cat-list { overflow-x: hidden; max-width: 100vw; }
 .zone-lbl.t1 { font-size: 26px; letter-spacing: .12em; }
 .zone-lbl.t2 { font-size: 18px; }
 .zone-lbl.t3 { font-size: 14px; opacity: .8; letter-spacing: .06em; }
+/* Élément sélectionné : halo pulsé pour le repérer d'un coup d'œil */
+.mkwrap.sel { z-index: 1000 !important; }
+.mkwrap.sel::before { content: ""; position: absolute; left: 50%; top: 50%; width: 64px; height: 64px; margin: -32px 0 0 -32px;
+  border-radius: 50%; border: 3px solid #ff3d8b; box-shadow: 0 0 18px #ff3d8b; animation: selpulse 1.4s ease-out infinite; pointer-events: none; }
+@keyframes selpulse { 0% { transform: scale(.5); opacity: 1; } 100% { transform: scale(1.4); opacity: 0; } }

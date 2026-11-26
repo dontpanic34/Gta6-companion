@@ -91,7 +91,7 @@ export default function VehicleDetailPage() {
 
         {(d.map_points?.length ?? 0) > 0 && (
           <button className="btn wide" style={{ marginTop: 12 }}
-            onClick={() => nav(`/carte?x=${d.map_points![0].x}&y=${d.map_points![0].y}&z=5`)}>
+            onClick={() => nav(`/carte?x=${d.map_points![0].x}&y=${d.map_points![0].y}&z=5&focus=${encodeURIComponent(d.map_points![0].id)}`)}>
             <MapPinned size={18} /> Voir sur la carte{d.map_points!.length > 1 ? ` (${d.map_points!.length} emplacements)` : ""}</button>
         )}
 

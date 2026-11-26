@@ -65,7 +65,7 @@ export default function EntityPage() {
         </div>
         {e.location && (
           <button className="btn ghost wide" style={{ marginTop: 10 }}
-            onClick={() => nav(`/carte?x=${e.location!.x}&y=${e.location!.y}&z=5`)}><MapPinned size={18} /> Voir sur la carte</button>
+            onClick={() => nav(`/carte?x=${e.location!.x}&y=${e.location!.y}&z=5&focus=${encodeURIComponent(e.id)}`)}><MapPinned size={18} /> Voir sur la carte</button>
         )}
       </div>
 
