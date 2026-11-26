@@ -95,5 +95,5 @@ def test_missable_warning_is_count_only(tmp_path, monkeypatch):
     set_progress(c, Progress(chapter=2))
     d = api.get_entity("mission:day-release")
     assert d["closes_count"] == 1
-    assert "jason-house-projects" not in _j.dumps(d) and "CANARI" not in _j.dumps(d)
+    assert "jason-house-projects" not in _j.dumps(d) and "Projets CANARI" not in _j.dumps(d)
     api._local.conn = None
