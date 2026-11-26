@@ -2,17 +2,18 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { Check, ChevronUp, Crosshair as Target, ExternalLink, Eye, Lightbulb, LocateFixed, Play, Search, SlidersHorizontal, X } from "lucide-react";
+import { Check, ChevronUp, Crosshair as Target, ExternalLink, Eye, Lightbulb, LocateFixed, MapPinned, Play, Search, SlidersHorizontal, X } from "lucide-react";
 import { api, EntityFull, entityLink, getBaseUrl, Place, RELIABILITY_FR } from "../api";
 import { ALL_FAMILIES, categoryStyle, Family, familyOf, iconInner, markerHtml } from "../map/categories";
 import { createTileLayer, distance, gameToLatLng, latLngToGame, LEONIDA_BOUNDS, TILE_BOUNDS } from "../map/leonida";
 
 const STORE = "map_state_v2";
-interface MapState { families: string[]; hideDone: boolean; me: [number, number] | null }
+interface MapState { families: string[]; hideDone: boolean; me: [number, number] | null; zone: string | null }
 const load = (): MapState => {
-  try { return { families: [], hideDone: false, me: null, ...JSON.parse(localStorage.getItem(STORE) ?? "{}") }; }
-  catch { return { families: [], hideDone: false, me: null }; }
+  try { return { families: [], hideDone: false, me: null, zone: null, ...JSON.parse(localStorage.getItem(STORE) ?? "{}") }; }
+  catch { return { families: [], hideDone: false, me: null, zone: null }; }
 };
+const norm = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 const isSecret = (p: { id: string }) => p.id.startsWith("secret:");
 const PRECISION_FR: Record<string, string> = { exact: "Emplacement exact", nearby: "Secteur", zone: "Zone seulement" };
 
@@ -79,17 +80,34 @@ export default function MapPage() {
     return () => { m.remove(); map.current = null; };
   }, []);
 
+  // recherche : seuls les lieux correspondants restent sur la carte (texte normalisé, sans accents)
+  const [query, setQuery] = useState("");
+  useEffect(() => { const t = setTimeout(() => setQuery(norm(q.trim())), 250); return () => clearTimeout(t); }, [q]);
+  const matches = (p: Place) => query.length < 2 || norm(`${p.name} ${p.category ?? ""} ${p.region ?? ""}`).includes(query);
+
   const filtered = useMemo(() => places.filter((p) => {
     if (p.x == null) return false;
+    if (st.zone && p.region !== st.zone) return false;
     if (st.families.length && !st.families.includes(familyOf(p.category, isSecret(p)).id)) return false;
     if (st.hideDone && (p.status === "done" || p.status === "discovered")) return false;
-    return true;
-  }), [places, st.families, st.hideDone]);
+    return matches(p);
+  }), [places, st.families, st.hideDone, st.zone, query]);
 
-  const results = useMemo(() => {
-    const n = q.trim().toLowerCase(); if (n.length < 2) return [];
-    return places.filter((p) => `${p.name} ${p.category ?? ""} ${p.region ?? ""}`.toLowerCase().includes(n)).slice(0, 40);
-  }, [q, places]);
+  const results = useMemo(() => query.length < 2 ? [] : filtered.slice(0, 40), [filtered, query]);
+
+  const zones = useMemo(() => {
+    const n: Record<string, number> = {};
+    places.forEach((p) => { if (p.x != null && p.region) n[p.region] = (n[p.region] ?? 0) + 1; });
+    return Object.entries(n).sort((a, b) => b[1] - a[1]);
+  }, [places]);
+
+  // cadrage automatique sur la zone choisie ou sur les résultats de recherche
+  useEffect(() => {
+    const m = map.current;
+    if (!m || (!st.zone && query.length < 2) || !filtered.length) return;
+    const b = L.latLngBounds(filtered.map((p) => gameToLatLng(p.x!, p.y!) as L.LatLngTuple));
+    m.flyToBounds(b.pad(0.2), { maxZoom: 5, duration: 0.6, paddingBottomRight: [0, 160] });
+  }, [st.zone, query, filtered.length]);
 
   // --- marqueurs (seulement ceux à l'écran, libellés à fort zoom)
   const inView = useMemo(() => view.b ? filtered.filter((p) => view.b!.contains(gameToLatLng(p.x!, p.y!))) : [], [filtered, view]);
@@ -162,7 +180,7 @@ export default function MapPage() {
   }, [places]);
   const toggleFam = (id: string) => setSt((s) => ({ ...s, families: s.families.includes(id) ? s.families.filter((x) => x !== id) : [...s.families, id] }));
   const nearby = useMemo(() => !st.me ? [] : filtered.map((p) => ({ p, d: distance(st.me!, [p.x!, p.y!]) })).sort((a, b) => a.d - b.d).slice(0, 40), [st.me, filtered]);
-  const activeCount = st.families.length + (st.hideDone ? 1 : 0);
+  const activeCount = st.families.length + (st.hideDone ? 1 : 0) + (st.zone ? 1 : 0);
 
   // --- contenu de la fiche
   const d = detail;
@@ -191,8 +209,13 @@ export default function MapPage() {
       {/* --- barre basse : familles + recherche (à portée de pouce) */}
       {!picked && (
         <div className="map-bottom">
-          {searching && results.length > 0 && (
+          {searching && query.length >= 2 && (
             <div className="results">
+              <button className="listrow results-head" onClick={() => setSearching(false)}>
+                <span className="grow" style={{ textAlign: "left" }}><b>{filtered.length}</b> résultat{filtered.length > 1 ? "s" : ""}{st.zone ? ` à ${st.zone}` : ""}</span>
+                <span className="small" style={{ color: "var(--accent)" }}>Voir sur la carte</span>
+              </button>
+              {results.length === 0 && <div className="small muted" style={{ padding: 12 }}>Aucun lieu ne correspond.</div>}
               {results.map((p) => { const s = categoryStyle(p.category, isSecret(p)); return (
                 <button key={p.id} className="listrow" onClick={() => pick(p, true)}>
                   <span className="famicon" style={{ background: s.color }}><FamIcon f={s} size={16} color="#0d0b14" /></span>
@@ -202,6 +225,10 @@ export default function MapPage() {
           )}
           {!searching && (
             <div className="chiprow">
+              {query.length >= 2 && <button className="chip on" onClick={() => setQ("")}><Search size={14} /> « {q.trim()} » <X size={14} /></button>}
+              {st.zone
+                ? <button className="chip on" onClick={() => setSt((s) => ({ ...s, zone: null }))}><MapPinned size={14} /> {st.zone} <X size={14} /></button>
+                : <button className="chip" onClick={() => setFilters(true)}><MapPinned size={14} /> Zone</button>}
               {ALL_FAMILIES.filter((f) => famCount[f.id]).map((f) => (
                 <button key={f.id} className={`chip ${st.families.includes(f.id) ? "on" : ""}`} onClick={() => toggleFam(f.id)}>
                   <FamIcon f={f} /> {f.label}
@@ -292,8 +319,16 @@ export default function MapPage() {
         <div className="sheet">
           <div className="grabber" />
           <div className="row"><h2 style={{ margin: 0 }}>Filtres</h2><span className="spacer" />
-            <button className="btn ghost small" onClick={() => setSt((s) => ({ ...s, families: [], hideDone: false }))}>Tout afficher</button></div>
+            <button className="btn ghost small" onClick={() => { setSt((s) => ({ ...s, families: [], hideDone: false, zone: null })); setQ(""); }}>Tout afficher</button></div>
           <label className="switch"><input type="checkbox" checked={st.hideDone} onChange={(e) => setSt((s) => ({ ...s, hideDone: e.target.checked }))} /> Masquer ce que j'ai déjà trouvé</label>
+          <h4 className="sheet-h">Zone</h4>
+          <div className="row">
+            <button className={`chip ${!st.zone ? "on" : ""}`} onClick={() => setSt((s) => ({ ...s, zone: null }))}>Toute Leonida</button>
+            {zones.map(([z, n]) => (
+              <button key={z} className={`chip ${st.zone === z ? "on" : ""}`} onClick={() => setSt((s) => ({ ...s, zone: s.zone === z ? null : z }))}>{z} <span className="muted small">{n}</span></button>
+            ))}
+          </div>
+          <h4 className="sheet-h">Catégories</h4>
           <div className="famgrid">
             {ALL_FAMILIES.filter((f) => famCount[f.id]).map((f) => (
               <button key={f.id} className={`famtile ${st.families.includes(f.id) ? "on" : ""}`} onClick={() => toggleFam(f.id)}>

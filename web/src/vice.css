@@ -68,3 +68,4 @@ h2, .sheet h2 { font-family: var(--display); font-weight: 400; font-size: 26px; 
 .mk.done { opacity: .4; filter: grayscale(.8); }
 .mkwrap.sel .pin2 { filter: drop-shadow(0 0 6px #ff3d8b) drop-shadow(0 0 2px #fff); transform: scale(1.15); }
 .mk-label { font-family: "Inter", sans-serif; font-weight: 800; font-size: 12.5px; letter-spacing: .01em; }
+.results-head { position: sticky; top: 0; background: var(--surface); z-index: 1; border-bottom: 1px solid var(--line); }
