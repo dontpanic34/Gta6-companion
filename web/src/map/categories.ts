@@ -112,9 +112,13 @@ const esc = (t: string) => t.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&l
 
 /** Marqueur : picto coloré à liseré sombre (lisible sur la carte), libellé optionnel dessous. */
 export function markerHtml(st: CatStyle, size: number, done: boolean, label?: string): string {
-  const g = Math.round(size * 0.62);
-  return `<div class="mk${done ? " done" : ""}"><div class="pin" style="width:${size}px;height:${size}px;background:${st.color}">` +
-    `<svg width="${g}" height="${g}" viewBox="0 0 24 24" fill="none" stroke="#0d0b14" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${iconInner(st.icon)}</svg></div>` +
+  // Style « autocollant » (comme les cartes de référence) : pas de pastille, le picto lui-même
+  // est coloré, cerné d'un épais contour sombre puis d'un liseré clair -> lisible sur toute la carte.
+  const g = iconInner(st.icon);
+  const layer = (stroke: string, w: number) =>
+    `<g fill="none" stroke="${stroke}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${g}</g>`;
+  return `<div class="mk${done ? " done" : ""}"><svg class="pin2" width="${size}" height="${size}" viewBox="-3 -3 30 30">` +
+    layer("#140a24", 7.2) + layer("#ffffff", 4.6) + layer(st.color, 2.6) + `</svg>` +
     (label ? `<span class="mk-label">${esc(label)}</span>` : "") + `</div>`;
 }
 
